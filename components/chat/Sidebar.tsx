@@ -82,8 +82,8 @@ export default function Sidebar({
       <aside
         className={`
           fixed lg:static inset-y-0 left-0 z-50
-          w-[280px] bg-sidebar border-r border-sidebar-border
-          flex flex-col
+          w-[280px] h-[100dvh] max-h-[100dvh] bg-sidebar border-r border-sidebar-border
+          flex flex-col overflow-hidden
           transform transition-all duration-300 ease-out
           ${isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
         `}
@@ -118,7 +118,7 @@ export default function Sidebar({
         </div>
 
         {/* Chat List */}
-        <div className="flex-1 overflow-y-auto px-3 pb-3">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-3 pb-3">
           {chats.length > 0 && (
             <div className="flex items-center justify-between px-2 py-2 mb-1">
               <span className="text-[11px] font-medium text-sidebar-foreground/40 uppercase tracking-wider">
@@ -194,7 +194,7 @@ export default function Sidebar({
         </div>
 
         {/* Bottom Section */}
-        <div className="p-3 border-t border-sidebar-border space-y-1">
+        <div className="shrink-0 p-3 border-t border-sidebar-border space-y-1 pb-safe">
           {/* Theme Toggle */}
           <div className="flex items-center justify-between px-3 py-2 rounded-xl hover:bg-sidebar-accent/50 transition-colors">
             <div className="flex items-center gap-3">

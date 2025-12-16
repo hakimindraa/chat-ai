@@ -113,9 +113,9 @@ export default function ChatArea({
   ];
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-background overflow-x-hidden touch-pan-y">
+    <div className="flex-1 flex flex-col h-[100dvh] max-h-[100dvh] bg-background overflow-hidden">
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain touch-pan-y">
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center px-4 pt-16 lg:pt-0 animate-fade-in">
             {/* Hero Section */}
@@ -253,7 +253,7 @@ export default function ChatArea({
       </div>
 
       {/* Input Area */}
-      <div className="border-t border-border bg-background/80 backdrop-blur-lg p-3 sm:p-4">
+      <div className="shrink-0 border-t border-border bg-background/80 backdrop-blur-lg p-3 sm:p-4 pb-safe">
         <form onSubmit={handleSubmit} className="max-w-3xl mx-auto">
           {/* Staged PDF Preview */}
           {stagedPdf && (

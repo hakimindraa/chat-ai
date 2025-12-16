@@ -145,6 +145,23 @@ html, body {
   overflow-x: hidden;
 }
 
+/* Fixed viewport for mobile - prevents address bar resize issues */
+.h-\[100dvh\] {
+  height: 100dvh;
+  height: -webkit-fill-available;
+}
+
+/* Safe area for notch/home indicator on iOS */
+.pb-safe {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+
+/* Prevent overscroll bounce on iOS */
+.overscroll-contain {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
 /* Smooth scrolling */
 html {
   scroll-behavior: smooth;

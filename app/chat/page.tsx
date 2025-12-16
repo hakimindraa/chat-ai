@@ -264,7 +264,7 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-[100dvh] max-h-[100dvh] overflow-hidden fixed inset-0">
       <Sidebar
         chats={chatList}
         activeChat={activeChat}
