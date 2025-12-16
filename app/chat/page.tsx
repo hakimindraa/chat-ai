@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/chat/Sidebar";
 import ChatArea from "@/components/chat/ChatArea";
+import { LogIn, UserPlus, X, Sparkles } from "lucide-react";
+import Link from "next/link";
 
 type Message = {
   id: string;
@@ -27,6 +29,8 @@ type ConversationGroup = {
   messages: ChatItem[];
 };
 
+const GUEST_CHAT_LIMIT = 7;
+
 export default function ChatPage() {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -35,20 +39,37 @@ export default function ChatPage() {
   const [activeChat, setActiveChat] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  
+  // Guest mode state
+  const [isGuest, setIsGuest] = useState(true);
+  const [guestChatCount, setGuestChatCount] = useState(0);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
 
-  // Check auth
+  // Check auth and load guest chat count
   useEffect(() => {
     const token = localStorage.getItem("token");
-    if (!token) {
-      router.push("/login");
-      return;
+    if (token && token !== "null" && token !== "undefined") {
+      setIsGuest(false);
+      loadChatHistory();
+    } else {
+      setIsGuest(true);
+      // Load guest chat count from localStorage
+      const savedCount = localStorage.getItem("guestChatCount");
+      if (savedCount) {
+        const count = parseInt(savedCount, 10);
+        setGuestChatCount(count);
+        if (count >= GUEST_CHAT_LIMIT) {
+          setShowLoginPrompt(true);
+        }
+      }
     }
-    loadChatHistory();
-  }, [router]);
+  }, []);
 
   const loadChatHistory = async () => {
     try {
       const token = localStorage.getItem("token");
+      if (!token) return;
+      
       const res = await fetch("/api/chat/history", {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -59,8 +80,6 @@ export default function ChatPage() {
         const chats = data.chats || [];
         setChatList(chats);
         
-        // Group chats - each chat is its own conversation for simplicity
-        // Or you could group by date/session
         const groups: ConversationGroup[] = chats.map((chat: ChatItem) => ({
           id: chat.id,
           firstMessage: chat.message,
@@ -83,10 +102,8 @@ export default function ChatPage() {
     setActiveChat(id);
     setSidebarOpen(false);
     
-    // Find the chat in the list and load its messages
     const selectedChat = chatList.find(chat => chat.id === id);
     if (selectedChat) {
-      // Convert the chat to messages format
       const loadedMessages: Message[] = [
         {
           id: `${selectedChat.id}-user`,
@@ -118,12 +135,10 @@ export default function ChatPage() {
       });
 
       if (res.ok) {
-        // Jika chat yang dihapus adalah yang sedang aktif, reset tampilan
         if (activeChat === id) {
           setMessages([]);
           setActiveChat(null);
         }
-        // Refresh chat list
         await loadChatHistory();
       }
     } catch (error) {
@@ -155,8 +170,26 @@ export default function ChatPage() {
   };
 
   const handleSendMessage = async (message: string, pdfFile?: File) => {
-    // Jika ada PDF, kirim PDF + message bersama
+    // Check guest limit before sending
+    if (isGuest && guestChatCount >= GUEST_CHAT_LIMIT) {
+      setShowLoginPrompt(true);
+      return;
+    }
+
+    // Handle PDF
     if (pdfFile) {
+      // Guest cannot upload PDF
+      if (isGuest) {
+        const errorMessage: Message = {
+          id: Date.now().toString(),
+          role: "assistant",
+          content: "Maaf, fitur upload PDF hanya tersedia untuk pengguna yang sudah login. Silakan login atau daftar untuk menggunakan fitur ini.",
+          type: "text",
+        };
+        setMessages((prev) => [...prev, errorMessage]);
+        return;
+      }
+
       const userMessage: Message = {
         id: Date.now().toString(),
         role: "user",
@@ -210,7 +243,7 @@ export default function ChatPage() {
       return;
     }
 
-    // Jika hanya message tanpa PDF
+    // Regular message
     if (!message.trim()) return;
 
     const userMessage: Message = {
@@ -229,14 +262,27 @@ export default function ChatPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          ...(token && token !== "null" && token !== "undefined" 
+            ? { Authorization: `Bearer ${token}` } 
+            : {}),
         },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ 
+          message,
+          guestChatCount: isGuest ? guestChatCount : 0,
+        }),
       });
 
-      if (!res.ok) throw new Error("Failed to send message");
-
       const data = await res.json();
+
+      if (res.status === 403 && data.requireLogin) {
+        setShowLoginPrompt(true);
+        // Remove the user message since it wasn't processed
+        setMessages((prev) => prev.slice(0, -1));
+        setIsLoading(false);
+        return;
+      }
+
+      if (!res.ok) throw new Error(data.error || "Failed to send message");
 
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -247,8 +293,18 @@ export default function ChatPage() {
 
       setMessages((prev) => [...prev, assistantMessage]);
 
-      // Refresh chat list
-      await loadChatHistory();
+      // Update guest chat count
+      if (isGuest) {
+        const newCount = guestChatCount + 1;
+        setGuestChatCount(newCount);
+        localStorage.setItem("guestChatCount", newCount.toString());
+        
+        if (newCount >= GUEST_CHAT_LIMIT) {
+          setShowLoginPrompt(true);
+        }
+      } else {
+        await loadChatHistory();
+      }
     } catch (error) {
       console.error("Error sending message:", error);
       const errorMessage: Message = {
@@ -274,12 +330,93 @@ export default function ChatPage() {
         onDeleteAllChats={handleDeleteAllChats}
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(!sidebarOpen)}
+        isGuest={isGuest}
+        guestChatCount={guestChatCount}
+        guestChatLimit={GUEST_CHAT_LIMIT}
       />
       <ChatArea
         messages={messages}
         onSendMessage={handleSendMessage}
         isLoading={isLoading}
+        isGuest={isGuest}
+        guestChatCount={guestChatCount}
+        guestChatLimit={GUEST_CHAT_LIMIT}
       />
+
+      {/* Login Prompt Modal */}
+      {showLoginPrompt && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-card rounded-2xl border border-border shadow-2xl max-w-md w-full animate-fade-in overflow-hidden">
+            {/* Header */}
+            <div className="relative bg-gradient-to-br from-primary to-purple-500 p-6 text-white">
+              <button
+                onClick={() => setShowLoginPrompt(false)}
+                className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-white/20 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              <div className="w-14 h-14 rounded-xl bg-white/20 flex items-center justify-center mb-4">
+                <Sparkles className="w-7 h-7" />
+              </div>
+              <h2 className="text-xl font-bold">Batas Chat Gratis Tercapai</h2>
+              <p className="text-white/80 text-sm mt-1">
+                Anda telah menggunakan {guestChatCount} dari {GUEST_CHAT_LIMIT} chat gratis
+              </p>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              <p className="text-muted-foreground text-sm mb-6">
+                Daftar atau login untuk menikmati fitur tanpa batas:
+              </p>
+              
+              <ul className="space-y-3 mb-6">
+                <li className="flex items-center gap-3 text-sm text-foreground">
+                  <div className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center">
+                    <span className="text-green-500 text-xs">✓</span>
+                  </div>
+                  Chat tanpa batas
+                </li>
+                <li className="flex items-center gap-3 text-sm text-foreground">
+                  <div className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center">
+                    <span className="text-green-500 text-xs">✓</span>
+                  </div>
+                  Upload dan analisis PDF
+                </li>
+                <li className="flex items-center gap-3 text-sm text-foreground">
+                  <div className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center">
+                    <span className="text-green-500 text-xs">✓</span>
+                  </div>
+                  Riwayat chat tersimpan
+                </li>
+                <li className="flex items-center gap-3 text-sm text-foreground">
+                  <div className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center">
+                    <span className="text-green-500 text-xs">✓</span>
+                  </div>
+                  AI mengingat percakapan sebelumnya
+                </li>
+              </ul>
+
+              <div className="space-y-3">
+                <Link
+                  href="/register"
+                  className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-all shadow-lg shadow-primary/20"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  Daftar Gratis
+                </Link>
+                <Link
+                  href="/login"
+                  className="flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-border text-foreground font-medium text-sm hover:bg-accent transition-all"
+                >
+                  <LogIn className="w-4 h-4" />
+                  Sudah Punya Akun? Login
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

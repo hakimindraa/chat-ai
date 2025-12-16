@@ -12,10 +12,13 @@ import {
   Sun, 
   Moon,
   Sparkles,
-  User2
+  User2,
+  LogIn,
+  UserPlus
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
+import Link from "next/link";
 
 type ChatItem = {
   id: string;
@@ -32,6 +35,9 @@ interface SidebarProps {
   onDeleteAllChats: () => void;
   isOpen: boolean;
   onToggle: () => void;
+  isGuest?: boolean;
+  guestChatCount?: number;
+  guestChatLimit?: number;
 }
 
 export default function Sidebar({
@@ -43,6 +49,9 @@ export default function Sidebar({
   onDeleteAllChats,
   isOpen,
   onToggle,
+  isGuest = false,
+  guestChatCount = 0,
+  guestChatLimit = 7,
 }: SidebarProps) {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
@@ -195,6 +204,22 @@ export default function Sidebar({
 
         {/* Bottom Section */}
         <div className="shrink-0 p-3 border-t border-sidebar-border space-y-1 pb-safe">
+          {/* Guest Chat Counter */}
+          {isGuest && (
+            <div className="px-3 py-2 mb-2 rounded-xl bg-primary/10 border border-primary/20">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-medium text-foreground">Chat Gratis</span>
+                <span className="text-xs font-bold text-primary">{guestChatCount}/{guestChatLimit}</span>
+              </div>
+              <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-primary to-purple-500 rounded-full transition-all duration-300"
+                  style={{ width: `${(guestChatCount / guestChatLimit) * 100}%` }}
+                />
+              </div>
+            </div>
+          )}
+
           {/* Theme Toggle */}
           <div className="flex items-center justify-between px-3 py-2 rounded-xl hover:bg-sidebar-accent/50 transition-colors">
             <div className="flex items-center gap-3">
@@ -226,43 +251,70 @@ export default function Sidebar({
             )}
           </div>
 
-          {/* Settings */}
-          <button
-            onClick={() => {
-              router.push("/profile");
-              if (window.innerWidth < 1024) onToggle();
-            }}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm
-                       text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground
-                       transition-all duration-200"
-          >
-            <Settings className="w-4 h-4 opacity-50" />
-            <span>Settings</span>
-          </button>
-
-          {/* User Info */}
-          <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-sidebar-accent/30">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/80 to-purple-500/80 flex items-center justify-center">
-                <User2 className="w-4 h-4 text-white" />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-xs font-medium text-sidebar-foreground truncate max-w-[120px]">
-                  {userEmail.split("@")[0]}
-                </span>
-                <span className="text-[10px] text-sidebar-foreground/40 truncate max-w-[120px]">
-                  {userEmail}
-                </span>
-              </div>
+          {/* Guest Mode - Login/Register buttons */}
+          {isGuest ? (
+            <div className="space-y-2 pt-2">
+              <Link
+                href="/register"
+                className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm
+                         bg-primary text-primary-foreground font-medium
+                         hover:opacity-90 transition-all duration-200"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>Daftar Gratis</span>
+              </Link>
+              <Link
+                href="/login"
+                className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm
+                         border border-border text-sidebar-foreground/70 
+                         hover:bg-sidebar-accent/50 hover:text-sidebar-foreground
+                         transition-all duration-200"
+              >
+                <LogIn className="w-4 h-4" />
+                <span>Login</span>
+              </Link>
             </div>
-            <button
-              onClick={handleLogout}
-              className="p-2 rounded-lg hover:bg-sidebar-accent text-sidebar-foreground/50 hover:text-red-400 transition-all duration-200"
-              title="Logout"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
-          </div>
+          ) : (
+            <>
+              {/* Settings */}
+              <button
+                onClick={() => {
+                  router.push("/profile");
+                  if (window.innerWidth < 1024) onToggle();
+                }}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm
+                           text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground
+                           transition-all duration-200"
+              >
+                <Settings className="w-4 h-4 opacity-50" />
+                <span>Settings</span>
+              </button>
+
+              {/* User Info */}
+              <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-sidebar-accent/30">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/80 to-purple-500/80 flex items-center justify-center">
+                    <User2 className="w-4 h-4 text-white" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-xs font-medium text-sidebar-foreground truncate max-w-[120px]">
+                      {userEmail.split("@")[0]}
+                    </span>
+                    <span className="text-[10px] text-sidebar-foreground/40 truncate max-w-[120px]">
+                      {userEmail}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="p-2 rounded-lg hover:bg-sidebar-accent text-sidebar-foreground/50 hover:text-red-400 transition-all duration-200"
+                  title="Logout"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </aside>
 

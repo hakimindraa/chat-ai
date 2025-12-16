@@ -9,39 +9,41 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+const GUEST_CHAT_LIMIT = 7;
+
 export async function POST(req: Request) {
   try {
-    // 1️⃣ AMBIL TOKEN DARI HEADER
+    // 1️⃣ CHECK AUTH - SUPPORT GUEST MODE
     const authHeader = req.headers.get("authorization");
-    if (!authHeader) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
+    let userId: number | null = null;
+    let isGuest = true;
 
-    const token = authHeader.split(" ")[1];
-    const decoded: any = jwt.verify(
-      token,
-      process.env.JWT_SECRET!
-    );
+    if (authHeader) {
+      const token = authHeader.split(" ")[1];
+      if (token && token !== "null" && token !== "undefined") {
+        try {
+          const decoded: any = jwt.verify(token, process.env.JWT_SECRET!);
+          userId = decoded.userId;
 
-    const userId = decoded.userId;
+          // Validasi user exists
+          if (userId) {
+            const user = await prisma.user.findUnique({
+              where: { id: userId },
+            });
 
-    // Validasi user exists
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!user) {
-      return NextResponse.json(
-        { error: "User tidak ditemukan. Silakan login ulang." },
-        { status: 401 }
-      );
+            if (user) {
+              isGuest = false;
+            }
+          }
+        } catch {
+          // Token invalid, treat as guest
+          isGuest = true;
+        }
+      }
     }
 
     // 2️⃣ AMBIL MESSAGE DARI BODY
-    const { message } = await req.json();
+    const { message, guestChatCount } = await req.json();
 
     if (!message) {
       return NextResponse.json(
@@ -50,27 +52,30 @@ export async function POST(req: Request) {
       );
     }
 
-    // 3️⃣ AMBIL RIWAYAT CHAT UNTUK KONTEKS (10 pesan terakhir)
-    const chatHistory = await prisma.chat.findMany({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
-      take: 10,
-    });
+    // 3️⃣ CHECK GUEST LIMIT
+    if (isGuest && guestChatCount >= GUEST_CHAT_LIMIT) {
+      return NextResponse.json(
+        { 
+          error: "Batas chat gratis tercapai", 
+          requireLogin: true,
+          message: "Anda telah mencapai batas 7 chat gratis. Silakan login atau daftar untuk chat tanpa batas!"
+        },
+        { status: 403 }
+      );
+    }
 
-    // Balik urutan agar dari yang lama ke baru
-    const reversedHistory = chatHistory.reverse();
-
-    // Bangun array messages dengan konteks percakapan sebelumnya
+    // 4️⃣ GET CHAT HISTORY (only for logged in users)
+    let conversationMessages: { role: "system" | "user" | "assistant"; content: string }[] = [];
+    
     const today = new Date().toLocaleDateString("id-ID", {
       day: "numeric",
       month: "long", 
       year: "numeric"
     });
     
-    const conversationMessages: { role: "system" | "user" | "assistant"; content: string }[] = [
-      {
-        role: "system",
-        content: `Kamu adalah asisten belajar mahasiswa bernama AI Study Assistant. Jawab dengan bahasa sederhana dan jelas. Kamu bisa mengingat percakapan sebelumnya dengan user.
+    conversationMessages.push({
+      role: "system",
+      content: `Kamu adalah asisten belajar mahasiswa bernama AI Study Assistant. Jawab dengan bahasa sederhana dan jelas. ${!isGuest ? "Kamu bisa mengingat percakapan sebelumnya dengan user." : ""}
 
 INFORMASI PENTING (UPDATE TERBARU):
 - Tanggal hari ini: ${today}
@@ -79,61 +84,70 @@ INFORMASI PENTING (UPDATE TERBARU):
 - Joko Widodo (Jokowi) adalah presiden sebelumnya (2014-2024)
 
 PENTING: Jangan gunakan format markdown seperti ###, **, *, atau simbol lainnya. Gunakan teks biasa saja dengan paragraf dan nomor jika perlu.`,
-      },
-    ];
+    });
 
-    // Pisahkan riwayat biasa dan PDF upload
-    const pdfUploads: { fileName: string; text: string }[] = [];
-    for (const chat of reversedHistory) {
-      if (typeof chat.message === "string" && chat.message.startsWith("PDF_UPLOAD:")) {
-        const parts = chat.message.split("\n\n");
-        const header = parts.shift() || "";
-        const fileName = header.replace(/^PDF_UPLOAD:/, "").trim();
-        const text = parts.join("\n\n");
-        pdfUploads.push({ fileName, text });
-      } else {
-        conversationMessages.push({ role: "user", content: chat.message });
-        conversationMessages.push({ role: "assistant", content: chat.reply });
+    // Get history only for logged in users
+    if (!isGuest && userId) {
+      const chatHistory = await prisma.chat.findMany({
+        where: { userId },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+      });
+
+      const reversedHistory = chatHistory.reverse();
+
+      const pdfUploads: { fileName: string; text: string }[] = [];
+      for (const chat of reversedHistory) {
+        if (typeof chat.message === "string" && chat.message.startsWith("PDF_UPLOAD:")) {
+          const parts = chat.message.split("\n\n");
+          const header = parts.shift() || "";
+          const fileName = header.replace(/^PDF_UPLOAD:/, "").trim();
+          const text = parts.join("\n\n");
+          pdfUploads.push({ fileName, text });
+        } else {
+          conversationMessages.push({ role: "user", content: chat.message });
+          conversationMessages.push({ role: "assistant", content: chat.reply });
+        }
       }
-    }
 
-    // Jika ada PDF yang diupload, coba ambil potongan yang relevan
-    if (pdfUploads.length > 0) {
-      const tokens: string[] = (message || "")
-        .toLowerCase()
-        .split(/\W+/)
-        .filter((t: string) => t.length > 2);
+      // Add PDF context if available
+      if (pdfUploads.length > 0) {
+        const tokens: string[] = (message || "")
+          .toLowerCase()
+          .split(/\W+/)
+          .filter((t: string) => t.length > 2);
 
-      const maxSnippetsPerPdf = 6;
+        const maxSnippetsPerPdf = 6;
 
-      for (const pdf of pdfUploads) {
-        const sentences = pdf.text.split(/(?<=[.!?])\s+/).map((s: string) => s.trim()).filter(Boolean);
+        for (const pdf of pdfUploads) {
+          const sentences = pdf.text.split(/(?<=[.!?])\s+/).map((s: string) => s.trim()).filter(Boolean);
 
-        const scored = sentences.map((s: string) => {
-          const low = s.toLowerCase();
-          let score = 0;
-          for (const t of tokens) {
-            if (low.includes(t)) score += 1;
-          }
-          return { s, score };
-        });
-
-        scored.sort((a, b) => b.score - a.score);
-        const top = scored.filter((x) => x.score > 0).slice(0, maxSnippetsPerPdf).map((x) => x.s);
-
-        if (top.length > 0) {
-          conversationMessages.push({
-            role: "system",
-            content: `Konteks dari PDF yang diupload (${pdf.fileName}):\n${top.join("\n\n")}`,
+          const scored = sentences.map((s: string) => {
+            const low = s.toLowerCase();
+            let score = 0;
+            for (const t of tokens) {
+              if (low.includes(t)) score += 1;
+            }
+            return { s, score };
           });
+
+          scored.sort((a, b) => b.score - a.score);
+          const top = scored.filter((x) => x.score > 0).slice(0, maxSnippetsPerPdf).map((x) => x.s);
+
+          if (top.length > 0) {
+            conversationMessages.push({
+              role: "system",
+              content: `Konteks dari PDF yang diupload (${pdf.fileName}):\n${top.join("\n\n")}`,
+            });
+          }
         }
       }
     }
 
-    // Tambahkan pesan baru dari user
+    // Add current message
     conversationMessages.push({ role: "user", content: message });
 
-    // 4️⃣ KIRIM KE OPENAI
+    // 5️⃣ SEND TO OPENAI
     const aiResponse = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: conversationMessages,
@@ -149,18 +163,22 @@ PENTING: Jangan gunakan format markdown seperti ###, **, *, atau simbol lainnya.
       .replace(/```[\s\S]*?```/g, "")
       .trim();
 
-    // 5️⃣ SIMPAN KE DATABASE
-    await prisma.chat.create({
-      data: {
-        message,
-        reply: aiReply,
-        userId,
-      },
-    });
+    // 6️⃣ SAVE TO DATABASE (only for logged in users)
+    if (!isGuest && userId) {
+      await prisma.chat.create({
+        data: {
+          message,
+          reply: aiReply,
+          userId,
+        },
+      });
+    }
 
-    // 6️⃣ RESPONSE KE FRONTEND
+    // 7️⃣ RESPONSE
     return NextResponse.json({
       reply: aiReply,
+      isGuest,
+      remainingChats: isGuest ? GUEST_CHAT_LIMIT - (guestChatCount + 1) : null,
     });
   } catch (error) {
     console.error("Chat API Error:", error);

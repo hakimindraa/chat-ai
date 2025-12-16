@@ -30,12 +30,18 @@ interface ChatAreaProps {
   messages: Message[];
   onSendMessage: (message: string, pdfFile?: File) => Promise<void>;
   isLoading: boolean;
+  isGuest?: boolean;
+  guestChatCount?: number;
+  guestChatLimit?: number;
 }
 
 export default function ChatArea({
   messages,
   onSendMessage,
   isLoading,
+  isGuest = false,
+  guestChatCount = 0,
+  guestChatLimit = 7,
 }: ChatAreaProps) {
   const [input, setInput] = useState("");
   const [stagedPdf, setStagedPdf] = useState<File | null>(null);
@@ -126,9 +132,18 @@ export default function ChatArea({
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2 text-center">
               <span className="gradient-text">Study AI</span>
             </h1>
-            <p className="text-muted-foreground text-center max-w-md text-sm sm:text-base px-4 mb-8">
+            <p className="text-muted-foreground text-center max-w-md text-sm sm:text-base px-4 mb-4">
               Your intelligent study companion. Ask questions, summarize documents, or get help with any topic.
             </p>
+
+            {/* Guest Mode Info */}
+            {isGuest && (
+              <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-6">
+                <span className="text-xs text-primary font-medium">
+                  Mode Tamu: {guestChatLimit - guestChatCount} chat tersisa
+                </span>
+              </div>
+            )}
 
             {/* Quick Actions Grid */}
             <div className="grid grid-cols-2 gap-3 max-w-md w-full px-4">
@@ -150,16 +165,23 @@ export default function ChatArea({
               ))}
             </div>
 
-            {/* PDF Upload Hint */}
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="mt-6 flex items-center gap-2 px-4 py-2 rounded-full 
-                         bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground
-                         text-sm transition-all duration-200"
-            >
-              <Paperclip className="w-4 h-4" />
-              <span>Upload PDF to analyze</span>
-            </button>
+            {/* PDF Upload Hint - only for logged in users */}
+            {!isGuest && (
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="mt-6 flex items-center gap-2 px-4 py-2 rounded-full 
+                           bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground
+                           text-sm transition-all duration-200"
+              >
+                <Paperclip className="w-4 h-4" />
+                <span>Upload PDF to analyze</span>
+              </button>
+            )}
+            {isGuest && (
+              <p className="mt-6 text-xs text-muted-foreground text-center">
+                Login untuk menggunakan fitur upload PDF
+              </p>
+            )}
           </div>
         ) : (
           <div className="max-w-3xl mx-auto px-4 py-6 pt-16 lg:pt-6">

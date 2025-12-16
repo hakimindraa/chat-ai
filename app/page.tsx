@@ -1,21 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { Bot, MessageSquare, FileText, Calendar, ArrowRight } from "lucide-react";
 import Link from "next/link";
 
 export default function Home() {
-  const router = useRouter();
-
-  useEffect(() => {
-    // Check if user is already logged in
-    const token = localStorage.getItem("token");
-    if (token) {
-      router.push("/chat");
-    }
-  }, [router]);
-
   return (
     <div className="min-h-screen bg-background">
       {/* Hero Section */}
@@ -63,7 +51,7 @@ export default function Home() {
         {/* CTA Buttons */}
         <div className="flex flex-col sm:flex-row gap-4">
           <Link
-            href="/login"
+            href="/chat"
             className="px-8 py-3 rounded-xl bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors flex items-center gap-2"
           >
             Mulai Sekarang
@@ -71,10 +59,10 @@ export default function Home() {
           </Link>
 
           <Link
-            href="/register"
+            href="/login"
             className="px-8 py-3 rounded-xl border border-border text-foreground font-medium hover:bg-accent transition-colors"
           >
-            Buat Akun
+            Login / Daftar
           </Link>
         </div>
       </div>
