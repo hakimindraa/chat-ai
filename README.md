@@ -24,7 +24,7 @@
 ## 🌐 Live Website
 
 🚀 **Production URL**  
-👉 https://chat-ai-nine-inky.vercel.app
+👉 https://asistenchat.vercel.app
 
 ☁ **Vercel Dashboard**  
 👉 https://vercel.com/hakims-projects-fb1f8856/chat-ai
