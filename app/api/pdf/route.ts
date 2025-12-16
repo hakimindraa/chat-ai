@@ -8,10 +8,17 @@ import { prisma } from "@/lib/prisma";
 const jwt = require("jsonwebtoken");
 
 // Gunakan dynamic import untuk pdf-parse agar tidak error saat build
-async function parsePdf(buffer: Buffer): Promise<{ text: string }> {
+async function parsePdf(buffer: Uint8Array): Promise<{ text: string; numpages: number }> {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const pdfParse = require("pdf-parse/lib/pdf-parse");
-  return pdfParse(buffer);
+  
+  // Convert Uint8Array to Buffer using Buffer.from() (non-deprecated method)
+  const nodeBuffer = Buffer.from(buffer);
+  
+  return pdfParse(nodeBuffer, {
+    // Tambahkan options untuk handle berbagai jenis PDF
+    max: 0, // parse semua halaman
+  });
 }
 
 const openai = new OpenAI({
@@ -65,34 +72,44 @@ export async function POST(req: Request) {
 
     console.log("PDF Upload: Processing file", file.name, "with message:", userMessage);
 
-    // ✅ CONVERT FILE → BUFFER
+    // ✅ CONVERT FILE → BUFFER (menggunakan Uint8Array untuk menghindari deprecation warning)
     const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    const uint8Array = new Uint8Array(arrayBuffer);
 
     // ✅ PARSE PDF
     let pdfData;
     try {
-      pdfData = await parsePdf(buffer);
+      pdfData = await parsePdf(uint8Array);
+      console.log("PDF Upload: Pages found:", pdfData.numpages);
     } catch (parseError) {
       console.error("PDF Error: Failed to parse PDF", parseError);
       return NextResponse.json(
-        { error: "Gagal membaca file PDF. Pastikan file tidak corrupt." },
+        { error: "Gagal membaca file PDF. Pastikan file tidak corrupt atau password protected." },
         { status: 400 }
       );
     }
 
-    if (!pdfData.text || pdfData.text.trim().length === 0) {
-      console.error("PDF Error: No text extracted from PDF");
+    // Extract dan clean text
+    let extractedText = pdfData.text || "";
+    
+    // Clean up whitespace
+    extractedText = extractedText
+      .replace(/\s+/g, ' ')  // Multiple spaces to single
+      .replace(/\n\s*\n/g, '\n\n')  // Multiple newlines to double
+      .trim();
+
+    if (!extractedText || extractedText.length < 10) {
+      console.error("PDF Error: No text extracted from PDF. Possibly scanned/image PDF.");
       return NextResponse.json(
-        { error: "PDF tidak mengandung teks yang dapat dibaca" },
+        { error: "PDF tidak mengandung teks yang dapat dibaca. Kemungkinan PDF berisi gambar/scan. Silakan gunakan PDF dengan teks yang bisa di-copy." },
         { status: 400 }
       );
     }
 
-    console.log("PDF Upload: Extracted text length:", pdfData.text.length);
+    console.log("PDF Upload: Extracted text length:", extractedText.length);
 
     // 🤖 Kirim ke AI dengan instruksi user
-    const pdfText = pdfData.text.slice(0, 15000); // Limit text untuk token
+    const pdfText = extractedText.slice(0, 15000); // Limit text untuk token
     
     const aiResponse = await openai.chat.completions.create({
       model: "gpt-4o-mini",
