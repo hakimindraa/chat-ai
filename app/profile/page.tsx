@@ -2,7 +2,16 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, User, Lock, Save, Loader2 } from "lucide-react";
+import { 
+  ArrowLeft, 
+  User2, 
+  Lock, 
+  Save, 
+  Loader2,
+  Mail,
+  Shield,
+  CheckCircle
+} from "lucide-react";
 import { toast } from "sonner";
 
 export default function ProfilePage() {
@@ -32,9 +41,7 @@ export default function ProfilePage() {
     try {
       const token = localStorage.getItem("token");
       const res = await fetch("/api/profile", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
         const data = await res.json();
@@ -67,12 +74,12 @@ export default function ProfilePage() {
 
       const data = await res.json();
       if (res.ok) {
-        toast.success("Profile berhasil diupdate!");
+        toast.success("Profile updated successfully!");
       } else {
-        toast.error(data.error || "Gagal mengupdate profile");
+        toast.error(data.error || "Failed to update profile");
       }
-    } catch (error) {
-      toast.error("Terjadi kesalahan");
+    } catch {
+      toast.error("Something went wrong");
     } finally {
       setSaving(false);
     }
@@ -82,12 +89,12 @@ export default function ProfilePage() {
     e.preventDefault();
 
     if (passwords.newPassword !== passwords.confirmPassword) {
-      toast.error("Password baru tidak cocok");
+      toast.error("New passwords don't match");
       return;
     }
 
     if (passwords.newPassword.length < 6) {
-      toast.error("Password minimal 6 karakter");
+      toast.error("Password must be at least 6 characters");
       return;
     }
 
@@ -109,17 +116,17 @@ export default function ProfilePage() {
 
       const data = await res.json();
       if (res.ok) {
-        toast.success("Password berhasil diubah!");
+        toast.success("Password changed successfully!");
         setPasswords({
           currentPassword: "",
           newPassword: "",
           confirmPassword: "",
         });
       } else {
-        toast.error(data.error || "Gagal mengubah password");
+        toast.error(data.error || "Failed to change password");
       }
-    } catch (error) {
-      toast.error("Terjadi kesalahan");
+    } catch {
+      toast.error("Something went wrong");
     } finally {
       setSaving(false);
     }
@@ -128,148 +135,189 @@ export default function ProfilePage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Loading profile...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-x-hidden">
       {/* Header */}
-      <header className="border-b border-border bg-card sticky top-0 z-10">
-        <div className="max-w-2xl mx-auto px-3 sm:px-4 py-3 sm:py-4 flex items-center gap-3 sm:gap-4">
+      <header className="sticky top-0 z-10 border-b border-border bg-background/80 backdrop-blur-lg">
+        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center gap-4">
           <button
             onClick={() => router.push("/chat")}
-            className="p-1.5 sm:p-2 rounded-lg hover:bg-accent transition-colors active:scale-95"
+            className="p-2 rounded-xl hover:bg-accent transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <h1 className="text-lg sm:text-xl font-semibold">Profile Settings</h1>
+          <div>
+            <h1 className="text-lg font-semibold">Settings</h1>
+            <p className="text-xs text-muted-foreground">Manage your account</p>
+          </div>
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-3 sm:px-4 py-4 sm:py-8 space-y-4 sm:space-y-8">
-        {/* Profile Info */}
-        <section className="bg-card rounded-xl p-4 sm:p-6 border border-border">
-          <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-emerald-400 to-cyan-400 flex items-center justify-center text-white">
-              <User className="w-4 h-4 sm:w-5 sm:h-5" />
+      <main className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+        {/* Profile Info Card */}
+        <section className="bg-card rounded-2xl p-6 border border-border shadow-sm animate-fade-in">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center shadow-lg shadow-primary/20">
+              <User2 className="w-6 h-6 text-white" />
             </div>
-            <h2 className="text-base sm:text-lg font-semibold">Informasi Profil</h2>
+            <div>
+              <h2 className="text-lg font-semibold">Profile Information</h2>
+              <p className="text-sm text-muted-foreground">Update your personal details</p>
+            </div>
           </div>
 
-          <form onSubmit={handleUpdateProfile} className="space-y-3 sm:space-y-4">
-            <div>
-              <label className="block text-xs sm:text-sm text-muted-foreground mb-1.5 sm:mb-2">
-                Email
-              </label>
-              <input
-                type="email"
-                value={profile.email}
-                disabled
-                className="w-full px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg bg-muted border border-border text-foreground text-sm opacity-60 cursor-not-allowed"
-              />
-              <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
-                Email tidak dapat diubah
+          <form onSubmit={handleUpdateProfile} className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Email</label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <input
+                  type="email"
+                  value={profile.email}
+                  disabled
+                  className="w-full pl-11 pr-4 py-3 rounded-xl bg-muted/50 border border-border 
+                           text-foreground/60 text-sm cursor-not-allowed"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <Shield className="w-3 h-3" />
+                Email cannot be changed
               </p>
             </div>
 
-            <div>
-              <label className="block text-xs sm:text-sm text-muted-foreground mb-1.5 sm:mb-2">
-                Nama
-              </label>
-              <input
-                type="text"
-                value={profile.name}
-                onChange={(e) =>
-                  setProfile({ ...profile, name: e.target.value })
-                }
-                placeholder="Masukkan nama kamu"
-                className="w-full px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg bg-muted border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              />
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Display Name</label>
+              <div className="relative">
+                <User2 className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <input
+                  type="text"
+                  value={profile.name}
+                  onChange={(e) => setProfile({ ...profile, name: e.target.value })}
+                  placeholder="Enter your name"
+                  className="w-full pl-11 pr-4 py-3 rounded-xl bg-muted border border-border 
+                           text-foreground text-sm placeholder:text-muted-foreground
+                           focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
+                           transition-all duration-200"
+                />
+              </div>
             </div>
 
             <button
               type="submit"
               disabled={saving}
-              className="w-full py-2.5 sm:py-3 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 text-sm sm:text-base active:scale-[0.98]"
+              className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-medium text-sm
+                       hover:opacity-90 transition-all duration-200 disabled:opacity-50
+                       flex items-center justify-center gap-2 shadow-lg shadow-primary/20
+                       active:scale-[0.98]"
             >
               {saving ? (
-                <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
+                <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
-                <Save className="w-4 h-4 sm:w-5 sm:h-5" />
+                <Save className="w-4 h-4" />
               )}
-              Simpan Perubahan
+              Save Changes
             </button>
           </form>
         </section>
 
-        {/* Change Password */}
-        <section className="bg-card rounded-xl p-4 sm:p-6 border border-border">
-          <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-violet-400 to-purple-400 flex items-center justify-center text-white">
-              <Lock className="w-4 h-4 sm:w-5 sm:h-5" />
+        {/* Change Password Card */}
+        <section className="bg-card rounded-2xl p-6 border border-border shadow-sm animate-fade-in" style={{ animationDelay: "100ms" }}>
+          <div className="flex items-center gap-4 mb-6">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
+              <Lock className="w-6 h-6 text-white" />
             </div>
-            <h2 className="text-base sm:text-lg font-semibold">Ubah Password</h2>
+            <div>
+              <h2 className="text-lg font-semibold">Change Password</h2>
+              <p className="text-sm text-muted-foreground">Update your security credentials</p>
+            </div>
           </div>
 
-          <form onSubmit={handleChangePassword} className="space-y-3 sm:space-y-4">
-            <div>
-              <label className="block text-xs sm:text-sm text-muted-foreground mb-1.5 sm:mb-2">
-                Password Lama
-              </label>
-              <input
-                type="password"
-                value={passwords.currentPassword}
-                onChange={(e) =>
-                  setPasswords({ ...passwords, currentPassword: e.target.value })
-                }
-                placeholder="Masukkan password lama"
-                className="w-full px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg bg-muted border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              />
+          <form onSubmit={handleChangePassword} className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Current Password</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <input
+                  type="password"
+                  value={passwords.currentPassword}
+                  onChange={(e) => setPasswords({ ...passwords, currentPassword: e.target.value })}
+                  placeholder="Enter current password"
+                  className="w-full pl-11 pr-4 py-3 rounded-xl bg-muted border border-border 
+                           text-foreground text-sm placeholder:text-muted-foreground
+                           focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
+                           transition-all duration-200"
+                />
+              </div>
             </div>
 
-            <div>
-              <label className="block text-xs sm:text-sm text-muted-foreground mb-1.5 sm:mb-2">
-                Password Baru
-              </label>
-              <input
-                type="password"
-                value={passwords.newPassword}
-                onChange={(e) =>
-                  setPasswords({ ...passwords, newPassword: e.target.value })
-                }
-                placeholder="Masukkan password baru"
-                className="w-full px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg bg-muted border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              />
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">New Password</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <input
+                  type="password"
+                  value={passwords.newPassword}
+                  onChange={(e) => setPasswords({ ...passwords, newPassword: e.target.value })}
+                  placeholder="Enter new password"
+                  className="w-full pl-11 pr-4 py-3 rounded-xl bg-muted border border-border 
+                           text-foreground text-sm placeholder:text-muted-foreground
+                           focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
+                           transition-all duration-200"
+                />
+              </div>
+              {passwords.newPassword.length > 0 && (
+                <div className={`flex items-center gap-2 text-xs ${passwords.newPassword.length >= 6 ? 'text-green-500' : 'text-muted-foreground'}`}>
+                  <CheckCircle className={`w-3.5 h-3.5 ${passwords.newPassword.length >= 6 ? 'opacity-100' : 'opacity-30'}`} />
+                  <span>At least 6 characters</span>
+                </div>
+              )}
             </div>
 
-            <div>
-              <label className="block text-xs sm:text-sm text-muted-foreground mb-1.5 sm:mb-2">
-                Konfirmasi Password Baru
-              </label>
-              <input
-                type="password"
-                value={passwords.confirmPassword}
-                onChange={(e) =>
-                  setPasswords({ ...passwords, confirmPassword: e.target.value })
-                }
-                placeholder="Ulangi password baru"
-                className="w-full px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg bg-muted border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              />
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Confirm New Password</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <input
+                  type="password"
+                  value={passwords.confirmPassword}
+                  onChange={(e) => setPasswords({ ...passwords, confirmPassword: e.target.value })}
+                  placeholder="Confirm new password"
+                  className="w-full pl-11 pr-4 py-3 rounded-xl bg-muted border border-border 
+                           text-foreground text-sm placeholder:text-muted-foreground
+                           focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
+                           transition-all duration-200"
+                />
+              </div>
+              {passwords.confirmPassword.length > 0 && (
+                <div className={`flex items-center gap-2 text-xs ${passwords.newPassword === passwords.confirmPassword ? 'text-green-500' : 'text-destructive'}`}>
+                  <CheckCircle className="w-3.5 h-3.5" />
+                  <span>{passwords.newPassword === passwords.confirmPassword ? 'Passwords match' : 'Passwords don\'t match'}</span>
+                </div>
+              )}
             </div>
 
             <button
               type="submit"
               disabled={saving || !passwords.currentPassword || !passwords.newPassword}
-              className="w-full py-2.5 sm:py-3 rounded-lg bg-violet-600 text-white hover:bg-violet-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 text-sm sm:text-base active:scale-[0.98]"
+              className="w-full py-3 rounded-xl bg-violet-600 text-white font-medium text-sm
+                       hover:bg-violet-700 transition-all duration-200 disabled:opacity-50
+                       flex items-center justify-center gap-2 shadow-lg shadow-violet-600/20
+                       active:scale-[0.98]"
             >
               {saving ? (
-                <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
+                <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
-                <Lock className="w-4 h-4 sm:w-5 sm:h-5" />
+                <Lock className="w-4 h-4" />
               )}
-              Ubah Password
+              Update Password
             </button>
           </form>
         </section>

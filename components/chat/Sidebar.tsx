@@ -1,7 +1,19 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, MessageSquare, FileText, LogOut, Menu, X, Trash2, Settings, Sun, Moon } from "lucide-react";
+import { 
+  Plus, 
+  MessageCircle, 
+  LogOut, 
+  Menu, 
+  X, 
+  Trash2, 
+  Settings, 
+  Sun, 
+  Moon,
+  Sparkles,
+  User2
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 
@@ -40,7 +52,6 @@ export default function Sidebar({
 
   useEffect(() => {
     setMounted(true);
-    // Get user email from token
     const token = localStorage.getItem("token");
     if (token) {
       try {
@@ -62,7 +73,7 @@ export default function Sidebar({
       {/* Mobile overlay */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
           onClick={onToggle}
         />
       )}
@@ -71,43 +82,67 @@ export default function Sidebar({
       <aside
         className={`
           fixed lg:static inset-y-0 left-0 z-50
-          w-[280px] sm:w-72 bg-sidebar flex flex-col
-          transform transition-transform duration-300 ease-in-out
+          w-[280px] bg-sidebar border-r border-sidebar-border
+          flex flex-col
+          transform transition-all duration-300 ease-out
           ${isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
-          shadow-xl lg:shadow-none
         `}
       >
-        {/* Header */}
-        <div className="p-3 border-b border-sidebar-border">
+        {/* Logo & New Chat */}
+        <div className="p-4 space-y-4">
+          {/* Logo */}
+          <div className="flex items-center gap-3 px-2">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center">
+              <Sparkles className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="font-semibold text-sidebar-foreground text-sm">Study AI</h1>
+              <p className="text-[10px] text-sidebar-foreground/50">Powered by GPT-4</p>
+            </div>
+          </div>
+
+          {/* New Chat Button */}
           <button
-            onClick={onNewChat}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl
-                       bg-sidebar-accent hover:bg-sidebar-accent/80
-                       text-sidebar-foreground transition-colors"
+            onClick={() => {
+              onNewChat();
+              if (window.innerWidth < 1024) onToggle();
+            }}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl
+                       bg-primary text-primary-foreground font-medium text-sm
+                       hover:opacity-90 transition-all duration-200 active:scale-[0.98]
+                       shadow-lg shadow-primary/20"
           >
-            <Plus className="w-5 h-5" />
-            <span className="font-medium">New chat</span>
+            <Plus className="w-4 h-4" strokeWidth={2.5} />
+            <span>New Chat</span>
           </button>
         </div>
 
         {/* Chat List */}
-        <div className="flex-1 overflow-y-auto p-2">
+        <div className="flex-1 overflow-y-auto px-3 pb-3">
           {chats.length > 0 && (
-            <div className="px-3 pb-2">
+            <div className="flex items-center justify-between px-2 py-2 mb-1">
+              <span className="text-[11px] font-medium text-sidebar-foreground/40 uppercase tracking-wider">
+                Recent Chats
+              </span>
               <button
                 onClick={onDeleteAllChats}
-                className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 transition-colors"
+                className="text-[10px] text-red-400/70 hover:text-red-400 flex items-center gap-1 transition-colors"
               >
                 <Trash2 className="w-3 h-3" />
-                Hapus semua chat
+                Clear all
               </button>
             </div>
           )}
+          
           <div className="space-y-1">
             {chats.length === 0 ? (
-              <p className="text-sm text-sidebar-foreground/50 px-3 py-2">
-                Belum ada percakapan
-              </p>
+              <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+                <div className="w-12 h-12 rounded-full bg-sidebar-accent/50 flex items-center justify-center mb-3">
+                  <MessageCircle className="w-6 h-6 text-sidebar-foreground/30" />
+                </div>
+                <p className="text-sm text-sidebar-foreground/50 font-medium">No conversations yet</p>
+                <p className="text-xs text-sidebar-foreground/30 mt-1">Start a new chat to begin</p>
+              </div>
             ) : (
               chats.map((chat) => (
                 <div
@@ -117,36 +152,39 @@ export default function Sidebar({
                   onMouseLeave={() => setHoveredChat(null)}
                 >
                   <button
-                    onClick={() => onSelectChat(chat.id)}
+                    onClick={() => {
+                      onSelectChat(chat.id);
+                      if (window.innerWidth < 1024) onToggle();
+                    }}
                     className={`
-                      w-full flex items-center gap-3 px-3 py-2.5 rounded-lg
-                      text-left text-sm transition-colors pr-10
+                      w-full flex items-center gap-3 px-3 py-2.5 rounded-xl
+                      text-left text-sm transition-all duration-200 pr-10
                       ${
                         activeChat === chat.id
-                          ? "bg-sidebar-accent text-sidebar-foreground"
-                          : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50"
+                          ? "bg-sidebar-accent text-sidebar-foreground font-medium"
+                          : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
                       }
                     `}
                   >
-                    <MessageSquare className="w-4 h-4 shrink-0" />
+                    <MessageCircle className="w-4 h-4 shrink-0 opacity-50" />
                     <span className="truncate">
-                      {chat.message.slice(0, 30)}
-                      {chat.message.length > 30 ? "..." : ""}
+                      {chat.message.slice(0, 28)}
+                      {chat.message.length > 28 ? "..." : ""}
                     </span>
                   </button>
-                  {/* Delete button - muncul saat hover */}
+                  
                   {(hoveredChat === chat.id || activeChat === chat.id) && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         onDeleteChat(chat.id);
                       }}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md
-                                 text-sidebar-foreground/50 hover:text-red-400 hover:bg-red-400/10
-                                 transition-colors"
-                      title="Hapus chat"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg
+                                 text-sidebar-foreground/40 hover:text-red-400 hover:bg-red-400/10
+                                 transition-all duration-200"
+                      title="Delete chat"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   )}
                 </div>
@@ -155,52 +193,71 @@ export default function Sidebar({
           </div>
         </div>
 
-        {/* User Section */}
-        <div className="p-2 sm:p-3 border-t border-sidebar-border space-y-1 sm:space-y-2">
+        {/* Bottom Section */}
+        <div className="p-3 border-t border-sidebar-border space-y-1">
           {/* Theme Toggle */}
-          <div className="flex items-center justify-between px-2 sm:px-3 py-1.5 sm:py-2">
-            <span className="text-xs sm:text-sm text-sidebar-foreground/70">Tema</span>
+          <div className="flex items-center justify-between px-3 py-2 rounded-xl hover:bg-sidebar-accent/50 transition-colors">
+            <div className="flex items-center gap-3">
+              {mounted && (theme === "dark" ? (
+                <Moon className="w-4 h-4 text-sidebar-foreground/50" />
+              ) : (
+                <Sun className="w-4 h-4 text-sidebar-foreground/50" />
+              ))}
+              <span className="text-sm text-sidebar-foreground/70">
+                {mounted && (theme === "dark" ? "Dark" : "Light")} Mode
+              </span>
+            </div>
             {mounted && (
               <button
                 onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                className="p-1.5 sm:p-2 rounded-lg hover:bg-sidebar-accent transition-colors text-sidebar-foreground/70 active:scale-95"
-                title={theme === "dark" ? "Mode Terang" : "Mode Gelap"}
+                className={`
+                  relative w-11 h-6 rounded-full transition-colors duration-200
+                  ${theme === "dark" ? "bg-primary" : "bg-sidebar-accent"}
+                `}
               >
-                {theme === "dark" ? (
-                  <Sun className="w-4 h-4" />
-                ) : (
-                  <Moon className="w-4 h-4" />
-                )}
+                <span
+                  className={`
+                    absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm
+                    transition-transform duration-200
+                    ${theme === "dark" ? "left-6" : "left-1"}
+                  `}
+                />
               </button>
             )}
           </div>
 
-          {/* Profile Link */}
+          {/* Settings */}
           <button
             onClick={() => {
               router.push("/profile");
-              onToggle();
+              if (window.innerWidth < 1024) onToggle();
             }}
-            className="w-full flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm
-                       text-sidebar-foreground/70 hover:bg-sidebar-accent/50 transition-colors active:scale-[0.98]"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm
+                       text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground
+                       transition-all duration-200"
           >
-            <Settings className="w-4 h-4" />
-            <span>Profile Settings</span>
+            <Settings className="w-4 h-4 opacity-50" />
+            <span>Settings</span>
           </button>
 
           {/* User Info */}
-          <div className="flex items-center justify-between px-2 sm:px-3 py-1.5 sm:py-2">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-emerald-400 to-cyan-400 flex items-center justify-center text-white text-xs sm:text-sm font-medium">
-                {userEmail.charAt(0).toUpperCase()}
+          <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-sidebar-accent/30">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/80 to-purple-500/80 flex items-center justify-center">
+                <User2 className="w-4 h-4 text-white" />
               </div>
-              <span className="text-xs sm:text-sm text-sidebar-foreground truncate max-w-[120px] sm:max-w-[140px]">
-                {userEmail}
-              </span>
+              <div className="flex flex-col">
+                <span className="text-xs font-medium text-sidebar-foreground truncate max-w-[120px]">
+                  {userEmail.split("@")[0]}
+                </span>
+                <span className="text-[10px] text-sidebar-foreground/40 truncate max-w-[120px]">
+                  {userEmail}
+                </span>
+              </div>
             </div>
             <button
               onClick={handleLogout}
-              className="p-1.5 sm:p-2 rounded-lg hover:bg-sidebar-accent transition-colors text-sidebar-foreground/70 active:scale-95"
+              className="p-2 rounded-lg hover:bg-sidebar-accent text-sidebar-foreground/50 hover:text-red-400 transition-all duration-200"
               title="Logout"
             >
               <LogOut className="w-4 h-4" />
@@ -212,8 +269,8 @@ export default function Sidebar({
       {/* Mobile Toggle Button */}
       <button
         onClick={onToggle}
-        className="fixed top-4 left-4 z-30 p-2 rounded-lg bg-card hover:bg-accent
-                   lg:hidden transition-colors"
+        className="fixed top-4 left-4 z-30 p-2.5 rounded-xl bg-card/80 backdrop-blur-sm border border-border
+                   hover:bg-accent lg:hidden transition-all duration-200 shadow-lg"
       >
         {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
       </button>

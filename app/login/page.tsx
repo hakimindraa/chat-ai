@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bot, Loader2 } from "lucide-react";
+import { Loader2, Sparkles, Mail, Lock, ArrowRight } from "lucide-react";
 import Link from "next/link";
 
 export default function LoginPage() {
@@ -20,94 +20,120 @@ export default function LoginPage() {
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || "Login gagal");
+        setError(data.error || "Login failed");
         return;
       }
 
       localStorage.setItem("token", data.token);
       router.push("/chat");
     } catch {
-      setError("Terjadi kesalahan. Silakan coba lagi.");
+      setError("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8 overflow-x-hidden">
+      {/* Background decoration */}
+      <div className="fixed inset-0 -z-10 overflow-hidden">
+        <div className="absolute top-1/4 -left-20 w-72 h-72 bg-primary/20 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 -right-20 w-72 h-72 bg-purple-500/20 rounded-full blur-3xl" />
+      </div>
+
+      <div className="w-full max-w-md animate-fade-in">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center mb-4">
-            <Bot className="w-8 h-8 text-white" />
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center mb-4 shadow-lg shadow-primary/30">
+            <Sparkles className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-2xl font-semibold text-foreground">
-            AI Study Assistant
+          <h1 className="text-2xl font-bold text-foreground">
+            Welcome back
           </h1>
-          <p className="text-muted-foreground mt-1">
-            Masuk ke akunmu
+          <p className="text-muted-foreground mt-1 text-sm">
+            Sign in to continue learning
           </p>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleLogin} className="space-y-4">
-          {error && (
-            <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm text-center">
-              {error}
-            </div>
-          )}
-
-          <div>
-            <input
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
-            />
-          </div>
-
-          <div>
-            <input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Memproses...
-              </>
-            ) : (
-              "Masuk"
+        {/* Form Card */}
+        <div className="bg-card border border-border rounded-2xl p-6 shadow-xl">
+          <form onSubmit={handleLogin} className="space-y-4">
+            {error && (
+              <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm text-center animate-fade-in">
+                {error}
+              </div>
             )}
-          </button>
-        </form>
 
-        <p className="text-center text-muted-foreground mt-4 sm:mt-6 text-sm">
-          Belum punya akun?{" "}
-          <Link href="/register" className="text-primary hover:underline">
-            Daftar sekarang
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Email</label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <input
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="w-full pl-11 pr-4 py-3 rounded-xl bg-muted border border-border text-foreground 
+                           placeholder:text-muted-foreground text-sm
+                           focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
+                           transition-all duration-200"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Password</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <input
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="w-full pl-11 pr-4 py-3 rounded-xl bg-muted border border-border text-foreground 
+                           placeholder:text-muted-foreground text-sm
+                           focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
+                           transition-all duration-200"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-semibold text-sm
+                       hover:opacity-90 transition-all duration-200 disabled:opacity-50 
+                       flex items-center justify-center gap-2 shadow-lg shadow-primary/30
+                       active:scale-[0.98]"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Signing in...
+                </>
+              ) : (
+                <>
+                  Sign In
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
+          </form>
+        </div>
+
+        <p className="text-center text-muted-foreground mt-6 text-sm">
+          Don&apos;t have an account?{" "}
+          <Link href="/register" className="text-primary font-medium hover:underline">
+            Create one
           </Link>
         </p>
       </div>

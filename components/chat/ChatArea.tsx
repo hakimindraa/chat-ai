@@ -1,7 +1,20 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Send, Paperclip, Loader2, Bot, User, FileText, X, Copy, Check } from "lucide-react";
+import { 
+  Send, 
+  Paperclip, 
+  Loader2, 
+  FileText, 
+  X, 
+  Copy, 
+  Check,
+  Sparkles,
+  BookOpen,
+  FileQuestion,
+  PenTool,
+  Zap
+} from "lucide-react";
 import { toast } from "sonner";
 import MarkdownRenderer from "./MarkdownRenderer";
 
@@ -43,10 +56,10 @@ export default function ChatArea({
     try {
       await navigator.clipboard.writeText(text);
       setCopiedId(id);
-      toast.success("Berhasil disalin!");
+      toast.success("Copied to clipboard!");
       setTimeout(() => setCopiedId(null), 2000);
     } catch {
-      toast.error("Gagal menyalin teks");
+      toast.error("Failed to copy");
     }
   };
 
@@ -71,7 +84,6 @@ export default function ChatArea({
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && file.type === "application/pdf") {
-      // Stage the PDF instead of uploading immediately
       setStagedPdf(file);
     }
     if (fileInputRef.current) {
@@ -83,7 +95,6 @@ export default function ChatArea({
     setStagedPdf(null);
   };
 
-  // Auto-resize textarea
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
@@ -94,79 +105,89 @@ export default function ChatArea({
     }
   }, [input]);
 
+  const quickActions = [
+    { icon: BookOpen, label: "Explain concept", prompt: "Explain the concept of", color: "from-blue-500 to-cyan-500" },
+    { icon: FileQuestion, label: "Summarize", prompt: "Summarize this topic:", color: "from-purple-500 to-pink-500" },
+    { icon: PenTool, label: "Practice quiz", prompt: "Create a practice quiz about", color: "from-orange-500 to-red-500" },
+    { icon: Zap, label: "Quick tips", prompt: "Give me quick tips for", color: "from-green-500 to-emerald-500" },
+  ];
+
   return (
-    <div className="flex-1 flex flex-col h-full bg-background">
+    <div className="flex-1 flex flex-col h-full bg-background overflow-x-hidden touch-pan-y">
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden">
         {messages.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center px-4 pt-16 lg:pt-0">
-            <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center mb-4 sm:mb-6">
-              <Bot className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+          <div className="h-full flex flex-col items-center justify-center px-4 pt-16 lg:pt-0 animate-fade-in">
+            {/* Hero Section */}
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center mb-6 shadow-lg shadow-primary/30">
+              <Sparkles className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
             </div>
-            <h1 className="text-xl sm:text-2xl font-semibold text-foreground mb-2 text-center">
-              AI Study Assistant
+            
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2 text-center">
+              <span className="gradient-text">Study AI</span>
             </h1>
-            <p className="text-muted-foreground text-center max-w-md text-sm sm:text-base px-2">
-              Tanyakan apa saja tentang materi pelajaranmu, atau upload PDF untuk diringkas.
+            <p className="text-muted-foreground text-center max-w-md text-sm sm:text-base px-4 mb-8">
+              Your intelligent study companion. Ask questions, summarize documents, or get help with any topic.
             </p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mt-6 sm:mt-8 max-w-lg w-full px-2">
-              <button
-                onClick={() => setInput("Jelaskan konsep machine learning")}
-                className="p-3 sm:p-4 rounded-xl border border-border hover:bg-accent text-left transition-colors active:scale-[0.98]"
-              >
-                <p className="font-medium text-foreground text-xs sm:text-sm">💡 Jelaskan konsep</p>
-                <p className="text-muted-foreground text-xs mt-1 hidden sm:block">Machine learning untuk pemula</p>
-              </button>
-              <button
-                onClick={() => setInput("Buatkan ringkasan tentang sejarah Indonesia")}
-                className="p-3 sm:p-4 rounded-xl border border-border hover:bg-accent text-left transition-colors active:scale-[0.98]"
-              >
-                <p className="font-medium text-foreground text-xs sm:text-sm">📝 Ringkasan materi</p>
-                <p className="text-muted-foreground text-xs mt-1 hidden sm:block">Sejarah Indonesia</p>
-              </button>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="p-3 sm:p-4 rounded-xl border border-border hover:bg-accent text-left transition-colors active:scale-[0.98]"
-              >
-                <p className="font-medium text-foreground text-xs sm:text-sm">📄 Upload PDF</p>
-                <p className="text-muted-foreground text-xs mt-1 hidden sm:block">Ringkas dokumen pelajaran</p>
-              </button>
-              <button
-                onClick={() => setInput("Buat soal latihan tentang fisika dasar")}
-                className="p-3 sm:p-4 rounded-xl border border-border hover:bg-accent text-left transition-colors active:scale-[0.98]"
-              >
-                <p className="font-medium text-foreground text-xs sm:text-sm">✏️ Soal latihan</p>
-                <p className="text-muted-foreground text-xs mt-1 hidden sm:block">Fisika dasar</p>
-              </button>
+            {/* Quick Actions Grid */}
+            <div className="grid grid-cols-2 gap-3 max-w-md w-full px-4">
+              {quickActions.map((action, index) => (
+                <button
+                  key={index}
+                  onClick={() => setInput(action.prompt + " ")}
+                  className="group p-4 rounded-2xl bg-card border border-border hover:border-primary/30 
+                             hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 
+                             text-left active:scale-[0.98]"
+                >
+                  <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${action.color} 
+                                  flex items-center justify-center mb-3 
+                                  group-hover:scale-110 transition-transform duration-300`}>
+                    <action.icon className="w-5 h-5 text-white" />
+                  </div>
+                  <p className="font-medium text-foreground text-sm">{action.label}</p>
+                </button>
+              ))}
             </div>
+
+            {/* PDF Upload Hint */}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="mt-6 flex items-center gap-2 px-4 py-2 rounded-full 
+                         bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground
+                         text-sm transition-all duration-200"
+            >
+              <Paperclip className="w-4 h-4" />
+              <span>Upload PDF to analyze</span>
+            </button>
           </div>
         ) : (
-          <div className="max-w-3xl mx-auto px-3 sm:px-4 py-4 sm:py-8 pt-16 lg:pt-8">
-            {messages.map((message) => (
+          <div className="max-w-3xl mx-auto px-4 py-6 pt-16 lg:pt-6">
+            {messages.map((message, index) => (
               <div
                 key={message.id}
-                className={`flex gap-2 sm:gap-4 mb-4 sm:mb-6 ${
+                className={`flex gap-3 mb-6 animate-fade-in ${
                   message.role === "user" ? "justify-end" : "justify-start"
                 }`}
+                style={{ animationDelay: `${index * 50}ms` }}
               >
                 {message.role === "assistant" && (
-                  <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center shrink-0">
-                    <Bot className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
+                  <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center shrink-0 shadow-md">
+                    <Sparkles className="w-4 h-4 text-white" />
                   </div>
                 )}
 
                 <div
-                  className={`max-w-[85%] sm:max-w-[80%] rounded-2xl px-3 sm:px-4 py-2 sm:py-3 relative group ${
+                  className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-3 relative group ${
                     message.role === "user"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-foreground"
+                      ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
+                      : "bg-card border border-border shadow-sm"
                   }`}
                 >
                   {message.type === "pdf" && message.fileName && (
-                    <div className="flex items-center gap-2 mb-2 text-sm opacity-80">
+                    <div className="flex items-center gap-2 mb-2 pb-2 border-b border-current/10">
                       <FileText className="w-4 h-4" />
-                      <span>{message.fileName}</span>
+                      <span className="text-xs font-medium truncate">{message.fileName}</span>
                     </div>
                   )}
                   <div className="text-sm leading-relaxed">
@@ -177,23 +198,23 @@ export default function ChatArea({
                     )}
                   </div>
                   
-                  {/* Copy Button - hanya untuk assistant */}
                   {message.role === "assistant" && (
                     <button
                       onClick={() => copyToClipboard(message.content, message.id)}
-                      className="absolute -bottom-8 left-0 opacity-0 group-hover:opacity-100 
-                                 flex items-center gap-1 text-xs text-muted-foreground 
-                                 hover:text-foreground transition-all"
+                      className="absolute -bottom-7 left-0 opacity-0 group-hover:opacity-100 
+                                 flex items-center gap-1.5 text-xs text-muted-foreground 
+                                 hover:text-foreground transition-all duration-200 px-2 py-1 rounded-lg
+                                 hover:bg-muted"
                     >
                       {copiedId === message.id ? (
                         <>
-                          <Check className="w-3.5 h-3.5" />
-                          <span>Tersalin!</span>
+                          <Check className="w-3.5 h-3.5 text-green-500" />
+                          <span className="text-green-500">Copied!</span>
                         </>
                       ) : (
                         <>
                           <Copy className="w-3.5 h-3.5" />
-                          <span>Salin</span>
+                          <span>Copy</span>
                         </>
                       )}
                     </button>
@@ -201,22 +222,26 @@ export default function ChatArea({
                 </div>
 
                 {message.role === "user" && (
-                  <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center shrink-0">
-                    <User className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
+                  <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shrink-0 shadow-md">
+                    <span className="text-white text-xs font-semibold">You</span>
                   </div>
                 )}
               </div>
             ))}
 
             {isLoading && (
-              <div className="flex gap-2 sm:gap-4 mb-4 sm:mb-6">
-                <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center shrink-0">
-                  <Bot className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
+              <div className="flex gap-3 mb-6 animate-fade-in">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center shrink-0 shadow-md">
+                  <Sparkles className="w-4 h-4 text-white animate-pulse-soft" />
                 </div>
-                <div className="bg-muted rounded-2xl px-3 sm:px-4 py-2 sm:py-3">
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 animate-spin" />
-                    <span className="text-xs sm:text-sm">Sedang berpikir...</span>
+                <div className="bg-card border border-border rounded-2xl px-4 py-3 shadow-sm">
+                  <div className="flex items-center gap-3 text-muted-foreground">
+                    <div className="flex gap-1">
+                      <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                      <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                      <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                    </div>
+                    <span className="text-sm">Thinking...</span>
                   </div>
                 </div>
               </div>
@@ -228,30 +253,30 @@ export default function ChatArea({
       </div>
 
       {/* Input Area */}
-      <div className="border-t border-border bg-background p-2 sm:p-4">
-        <form
-          onSubmit={handleSubmit}
-          className="max-w-3xl mx-auto"
-        >
+      <div className="border-t border-border bg-background/80 backdrop-blur-lg p-3 sm:p-4">
+        <form onSubmit={handleSubmit} className="max-w-3xl mx-auto">
           {/* Staged PDF Preview */}
           {stagedPdf && (
-            <div className="mb-2 sm:mb-3 flex items-center gap-2 bg-muted rounded-xl px-3 sm:px-4 py-2 sm:py-3">
-              <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500" />
-              <span className="flex-1 text-xs sm:text-sm text-foreground truncate">
-                {stagedPdf.name}
-              </span>
+            <div className="mb-3 flex items-center gap-3 bg-primary/10 border border-primary/20 rounded-xl px-4 py-3 animate-fade-in">
+              <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
+                <FileText className="w-5 h-5 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-foreground truncate">{stagedPdf.name}</p>
+                <p className="text-xs text-muted-foreground">Ready to analyze</p>
+              </div>
               <button
                 type="button"
                 onClick={removeStagedPdf}
-                className="p-1 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-                title="Hapus PDF"
+                className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
           )}
           
-          <div className="relative flex items-end gap-1 sm:gap-2 bg-muted rounded-2xl px-2 sm:px-4 py-2 sm:py-3">
+          <div className="relative flex items-end gap-2 bg-muted/50 border border-border rounded-2xl px-3 py-2 
+                          focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/20 transition-all duration-200">
             {/* File Upload Button */}
             <input
               ref={fileInputRef}
@@ -263,12 +288,12 @@ export default function ChatArea({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className={`p-1.5 sm:p-2 rounded-lg hover:bg-accent transition-colors ${
-                stagedPdf ? "text-emerald-500" : "text-muted-foreground hover:text-foreground"
+              className={`p-2 rounded-xl hover:bg-accent transition-all duration-200 ${
+                stagedPdf ? "text-primary" : "text-muted-foreground hover:text-foreground"
               }`}
               title="Upload PDF"
             >
-              <Paperclip className="w-4 h-4 sm:w-5 sm:h-5" />
+              <Paperclip className="w-5 h-5" />
             </button>
 
             {/* Text Input */}
@@ -277,35 +302,33 @@ export default function ChatArea({
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={stagedPdf ? "Tulis instruksi untuk PDF ini..." : "Tanyakan sesuatu..."}
+              placeholder={stagedPdf ? "What should I do with this PDF?" : "Ask me anything..."}
               rows={1}
-              className="flex-1 bg-transparent resize-none outline-none text-foreground placeholder:text-muted-foreground text-xs sm:text-sm py-2"
-              style={{ maxHeight: "200px" }}
+              className="flex-1 bg-transparent resize-none outline-none text-foreground 
+                         placeholder:text-muted-foreground text-sm py-2 min-h-[40px]"
+              style={{ maxHeight: "160px" }}
             />
 
             {/* Send Button */}
             <button
               type="submit"
               disabled={(!input.trim() && !stagedPdf) || isLoading}
-              className={`p-1.5 sm:p-2 rounded-lg transition-colors ${
+              className={`p-2.5 rounded-xl transition-all duration-200 ${
                 (input.trim() || stagedPdf) && !isLoading
-                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                  : "text-muted-foreground cursor-not-allowed"
+                  ? "bg-primary text-primary-foreground hover:opacity-90 shadow-lg shadow-primary/30"
+                  : "bg-muted text-muted-foreground cursor-not-allowed"
               }`}
             >
               {isLoading ? (
-                <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
+                <Loader2 className="w-5 h-5 animate-spin" />
               ) : (
-                <Send className="w-4 h-4 sm:w-5 sm:h-5" />
+                <Send className="w-5 h-5" />
               )}
             </button>
           </div>
 
-          <p className="text-center text-[10px] sm:text-xs text-muted-foreground mt-2 sm:mt-3 px-2">
-            {stagedPdf 
-              ? "📄 PDF siap. Tulis instruksi lalu kirim."
-              : "AI dapat membuat kesalahan. Periksa info penting."
-            }
+          <p className="text-center text-[10px] text-muted-foreground/60 mt-3">
+            Study AI can make mistakes. Please verify important information.
           </p>
         </form>
       </div>
