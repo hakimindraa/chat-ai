@@ -6,8 +6,13 @@ import { prisma } from "@/lib/prisma";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const jwt = require("jsonwebtoken");
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdfParse = require("pdf-parse");
+
+// Gunakan dynamic import untuk pdf-parse agar tidak error saat build
+async function parsePdf(buffer: Buffer): Promise<{ text: string }> {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const pdfParse = require("pdf-parse/lib/pdf-parse");
+  return pdfParse(buffer);
+}
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -67,7 +72,7 @@ export async function POST(req: Request) {
     // ✅ PARSE PDF
     let pdfData;
     try {
-      pdfData = await pdfParse(buffer);
+      pdfData = await parsePdf(buffer);
     } catch (parseError) {
       console.error("PDF Error: Failed to parse PDF", parseError);
       return NextResponse.json(
