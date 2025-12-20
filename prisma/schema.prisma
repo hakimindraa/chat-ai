@@ -15,10 +15,15 @@ model User {
   password  String
   name      String?
   createdAt DateTime @default(now())
+  
+  // Model preference: "auto" | "gpt" | "llama"
+  modelPreference String @default("auto")
 
-  chats     Chat[]
-  summaries PdfSummary[]
-  plans     StudyPlan[]
+  chats      Chat[]
+  summaries  PdfSummary[]
+  plans      StudyPlan[]
+  knowledge  Knowledge[]
+  settings   UserSettings?
 }
 
 model Chat {
@@ -46,6 +51,31 @@ model StudyPlan {
   plan      String
   userId    Int
   createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+// Knowledge base for RAG
+model Knowledge {
+  id        Int      @id @default(autoincrement())
+  title     String
+  content   String   @db.Text
+  embedding String?  @db.Text  // JSON string of embedding vector
+  source    String   @default("manual") // "pdf", "manual", "feedback"
+  userId    Int
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+// User settings for AI preferences
+model UserSettings {
+  id              Int      @id @default(autoincrement())
+  modelPreference String   @default("auto") // "auto", "gpt", "llama"
+  useKnowledge    Boolean  @default(true)
+  userId          Int      @unique
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id])
 }

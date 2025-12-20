@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/chat/Sidebar";
 import ChatArea from "@/components/chat/ChatArea";
+import ModelSwitch from "@/components/chat/ModelSwitch";
 import { LogIn, UserPlus, X, Sparkles } from "lucide-react";
 import Link from "next/link";
 
@@ -14,6 +15,7 @@ type Message = {
   type?: "text" | "pdf" | "image";
   fileName?: string;
   imageUrl?: string;
+  modelUsed?: "gpt" | "llama";
 };
 
 type ChatItem = {
@@ -45,6 +47,9 @@ export default function ChatPage() {
   const [isGuest, setIsGuest] = useState(true);
   const [guestChatCount, setGuestChatCount] = useState(0);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+
+  // Model selection state
+  const [modelPreference, setModelPreference] = useState<"auto" | "gpt" | "llama">("auto");
 
   // Check auth and load guest chat count
   useEffect(() => {
@@ -170,6 +175,51 @@ export default function ChatPage() {
     }
   };
 
+  // Search knowledge base for RAG
+  const searchKnowledge = async (query: string): Promise<{ context: string; hasResults: boolean }> => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) return { context: "", hasResults: false };
+
+      const res = await fetch("/api/knowledge/search", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ query, topK: 3 }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        return { context: data.context || "", hasResults: data.hasResults || false };
+      }
+    } catch (error) {
+      console.error("Knowledge search error:", error);
+    }
+    return { context: "", hasResults: false };
+  };
+
+  // Determine which model to use
+  const determineModel = async (message: string): Promise<{ model: "gpt" | "llama"; context: string }> => {
+    // If explicit preference, use that
+    if (modelPreference === "gpt") return { model: "gpt", context: "" };
+    if (modelPreference === "llama") {
+      const { context } = await searchKnowledge(message);
+      return { model: "llama", context };
+    }
+
+    // Auto mode: check knowledge base first
+    const { context, hasResults } = await searchKnowledge(message);
+    if (hasResults) {
+      // Has relevant knowledge, use Llama with RAG
+      return { model: "llama", context };
+    }
+
+    // No knowledge found, use GPT
+    return { model: "gpt", context: "" };
+  };
+
   const handleSendMessage = async (message: string, pdfFile?: File) => {
     // Check guest limit before sending
     if (isGuest && guestChatCount >= GUEST_CHAT_LIMIT) {
@@ -268,7 +318,14 @@ export default function ChatPage() {
 
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch("/api/chat/stream", {
+
+      // Determine which model and context to use
+      const { model, context } = await determineModel(message);
+
+      // Choose API endpoint based on model
+      const apiEndpoint = model === "llama" ? "/api/chat/groq" : "/api/chat/stream";
+
+      const res = await fetch(apiEndpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -278,6 +335,7 @@ export default function ChatPage() {
         },
         body: JSON.stringify({
           message,
+          context: model === "llama" ? context : undefined,
           guestChatCount: isGuest ? guestChatCount : 0,
         }),
       });
@@ -322,11 +380,11 @@ export default function ChatPage() {
 
               if (data.content) {
                 fullContent += data.content;
-                // Update the assistant message with new content
+                // Update the assistant message with new content and model used
                 setMessages((prev) =>
                   prev.map((msg) =>
                     msg.id === assistantMessageId
-                      ? { ...msg, content: fullContent }
+                      ? { ...msg, content: fullContent, modelUsed: model }
                       : msg
                   )
                 );
@@ -590,6 +648,8 @@ export default function ChatPage() {
         isGuest={isGuest}
         guestChatCount={guestChatCount}
         guestChatLimit={GUEST_CHAT_LIMIT}
+        modelPreference={modelPreference}
+        onModelChange={setModelPreference}
       />
 
       {/* Login Prompt Modal */}
@@ -665,7 +725,8 @@ export default function ChatPage() {
             </div>
           </div>
         </div>
-      )}
-    </div>
+      )
+      }
+    </div >
   );
 }

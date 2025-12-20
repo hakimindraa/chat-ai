@@ -14,8 +14,14 @@ import {
   Sparkles,
   User2,
   LogIn,
-  UserPlus
+  UserPlus,
+  BookOpen,
+  Upload,
+  ChevronDown,
+  FileText,
+  Loader2
 } from "lucide-react";
+import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import Link from "next/link";
@@ -60,6 +66,12 @@ export default function Sidebar({
   const [userEmail, setUserEmail] = useState<string>("");
   const [hoveredChat, setHoveredChat] = useState<string | null>(null);
 
+  // Knowledge Base state
+  const [showKnowledge, setShowKnowledge] = useState(false);
+  const [knowledgeList, setKnowledgeList] = useState<{ id: number; title: string }[]>([]);
+  const [loadingKnowledge, setLoadingKnowledge] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(false);
+
   useEffect(() => {
     setMounted(true);
 
@@ -84,6 +96,92 @@ export default function Sidebar({
 
     fetchProfile();
   }, []);
+
+  // Fetch knowledge list
+  const fetchKnowledge = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    setLoadingKnowledge(true);
+    try {
+      const res = await fetch("/api/knowledge", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setKnowledgeList(data.knowledge || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch knowledge:", error);
+    } finally {
+      setLoadingKnowledge(false);
+    }
+  };
+
+  // Handle file upload
+  const handleUploadKnowledge = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      toast.error("Login diperlukan untuk upload dokumen");
+      return;
+    }
+
+    setUploadingFile(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/knowledge", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+
+      if (res.ok) {
+        toast.success("Dokumen berhasil diupload!");
+        fetchKnowledge();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Gagal upload dokumen");
+      }
+    } catch (error) {
+      toast.error("Gagal upload dokumen");
+    } finally {
+      setUploadingFile(false);
+      e.target.value = "";
+    }
+  };
+
+  // Handle delete knowledge
+  const handleDeleteKnowledge = async (id: number) => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    try {
+      const res = await fetch(`/api/knowledge?id=${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (res.ok) {
+        toast.success("Dokumen berhasil dihapus");
+        setKnowledgeList(prev => prev.filter(k => k.id !== id));
+      }
+    } catch (error) {
+      toast.error("Gagal menghapus dokumen");
+    }
+  };
+
+  // Toggle knowledge section
+  const toggleKnowledge = () => {
+    if (!showKnowledge) {
+      fetchKnowledge();
+    }
+    setShowKnowledge(!showKnowledge);
+  };
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -139,6 +237,90 @@ export default function Sidebar({
             <Plus className="w-4 h-4" strokeWidth={2.5} />
             <span>New Chat</span>
           </button>
+
+          {/* Knowledge Base Section */}
+          {!isGuest && (
+            <div className="mt-3">
+              <button
+                onClick={toggleKnowledge}
+                className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl
+                           bg-sidebar-accent/50 hover:bg-sidebar-accent text-sidebar-foreground
+                           text-sm font-medium transition-all duration-200"
+              >
+                <div className="flex items-center gap-2">
+                  <BookOpen className="w-4 h-4" />
+                  <span>Knowledge Base</span>
+                  {knowledgeList.length > 0 && (
+                    <span className="text-[10px] px-1.5 py-0.5 bg-primary/20 text-primary rounded-full">
+                      {knowledgeList.length}
+                    </span>
+                  )}
+                </div>
+                <ChevronDown className={`w-4 h-4 transition-transform ${showKnowledge ? "rotate-180" : ""}`} />
+              </button>
+
+              {/* Expandable Knowledge Section */}
+              {showKnowledge && (
+                <div className="mt-2 p-2 bg-sidebar-accent/30 rounded-xl space-y-2 animate-fade-in">
+                  {/* Upload Button */}
+                  <label className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg
+                                    bg-primary/10 hover:bg-primary/20 text-primary text-sm cursor-pointer
+                                    transition-all duration-200 border border-dashed border-primary/30">
+                    <input
+                      type="file"
+                      accept=".pdf,.txt,.md"
+                      onChange={handleUploadKnowledge}
+                      className="hidden"
+                      disabled={uploadingFile}
+                    />
+                    {uploadingFile ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Uploading...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4" />
+                        <span>Upload Dokumen</span>
+                      </>
+                    )}
+                  </label>
+
+                  {/* Knowledge List */}
+                  {loadingKnowledge ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : knowledgeList.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-2">
+                      Belum ada dokumen
+                    </p>
+                  ) : (
+                    <div className="space-y-1 max-h-40 overflow-y-auto">
+                      {knowledgeList.map((item) => (
+                        <div
+                          key={item.id}
+                          className="flex items-center gap-2 px-2 py-1.5 bg-background/50 rounded-lg group"
+                        >
+                          <FileText className="w-3.5 h-3.5 text-primary shrink-0" />
+                          <span className="text-xs text-foreground truncate flex-1">
+                            {item.title}
+                          </span>
+                          <button
+                            onClick={() => handleDeleteKnowledge(item.id)}
+                            className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-500/10 
+                                       text-muted-foreground hover:text-red-500 transition-all"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Chat List */}

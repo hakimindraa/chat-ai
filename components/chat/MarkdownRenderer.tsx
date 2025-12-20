@@ -85,25 +85,25 @@ export default function MarkdownRenderer({ content }: MarkdownRendererProps) {
           );
         },
         p({ children }) {
-          return <p className="mb-2 sm:mb-3 last:mb-0 text-sm sm:text-base">{children}</p>;
+          return <p className="mb-2 sm:mb-3 last:mb-0 text-sm sm:text-[15px] font-normal leading-relaxed text-zinc-200">{children}</p>;
         },
         ul({ children }) {
-          return <ul className="list-disc list-inside mb-2 sm:mb-3 space-y-0.5 sm:space-y-1 text-sm sm:text-base">{children}</ul>;
+          return <ul className="list-disc list-inside mb-2 sm:mb-3 space-y-1 text-sm sm:text-[15px] font-normal text-zinc-200">{children}</ul>;
         },
         ol({ children }) {
-          return <ol className="list-decimal list-inside mb-2 sm:mb-3 space-y-0.5 sm:space-y-1 text-sm sm:text-base">{children}</ol>;
+          return <ol className="list-decimal list-inside mb-2 sm:mb-3 space-y-1 text-sm sm:text-[15px] font-normal text-zinc-200">{children}</ol>;
         },
         li({ children }) {
-          return <li className="ml-1 sm:ml-2">{children}</li>;
+          return <li className="ml-1 sm:ml-2 leading-relaxed">{children}</li>;
         },
         h1({ children }) {
-          return <h1 className="text-lg sm:text-xl font-bold mb-2 sm:mb-3 mt-3 sm:mt-4">{children}</h1>;
+          return <h1 className="text-lg sm:text-xl font-semibold mb-2 sm:mb-3 mt-3 sm:mt-4 text-white">{children}</h1>;
         },
         h2({ children }) {
-          return <h2 className="text-base sm:text-lg font-bold mb-1.5 sm:mb-2 mt-2 sm:mt-3">{children}</h2>;
+          return <h2 className="text-base sm:text-lg font-semibold mb-1.5 sm:mb-2 mt-2 sm:mt-3 text-white">{children}</h2>;
         },
         h3({ children }) {
-          return <h3 className="text-sm sm:text-base font-bold mb-1.5 sm:mb-2 mt-2 sm:mt-3">{children}</h3>;
+          return <h3 className="text-sm sm:text-base font-medium mb-1.5 sm:mb-2 mt-2 sm:mt-3 text-white">{children}</h3>;
         },
         blockquote({ children }) {
           return (

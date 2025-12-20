@@ -18,8 +18,10 @@ import {
   ImageIcon,
   Plus
 } from "lucide-react";
+import { Bot, Zap as ZapIcon, Brain, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import MarkdownRenderer from "./MarkdownRenderer";
+import FeedbackButton from "./FeedbackButton";
 
 type Message = {
   id: string;
@@ -28,6 +30,7 @@ type Message = {
   type?: "text" | "pdf" | "image";
   fileName?: string;
   imageUrl?: string;
+  modelUsed?: "gpt" | "llama";
 };
 
 interface ChatAreaProps {
@@ -39,6 +42,8 @@ interface ChatAreaProps {
   isGuest?: boolean;
   guestChatCount?: number;
   guestChatLimit?: number;
+  modelPreference?: "auto" | "gpt" | "llama";
+  onModelChange?: (model: "auto" | "gpt" | "llama") => void;
 }
 
 export default function ChatArea({
@@ -50,6 +55,8 @@ export default function ChatArea({
   isGuest = false,
   guestChatCount = 0,
   guestChatLimit = 7,
+  modelPreference = "auto",
+  onModelChange,
 }: ChatAreaProps) {
   const [input, setInput] = useState("");
   const [stagedPdf, setStagedPdf] = useState<File | null>(null);
@@ -57,6 +64,7 @@ export default function ChatArea({
   const [stagedImageUrl, setStagedImageUrl] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
+  const [showModelMenu, setShowModelMenu] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -275,15 +283,36 @@ export default function ChatArea({
                   <div className="group py-6 mb-2">
                     <div className="max-w-3xl mx-auto px-4 sm:px-6">
                       <div className="flex gap-4">
-                        {/* Avatar */}
-                        <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center shrink-0">
-                          <Sparkles className="w-4 h-4 text-primary-foreground" />
+                        {/* Avatar - Color changes based on model */}
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${message.modelUsed === "llama"
+                            ? "bg-gradient-to-br from-orange-500 to-amber-500"
+                            : message.modelUsed === "gpt"
+                              ? "bg-gradient-to-br from-green-500 to-emerald-500"
+                              : "bg-primary"
+                          }`}>
+                          {message.modelUsed === "llama" ? (
+                            <ZapIcon className="w-4 h-4 text-white" />
+                          ) : message.modelUsed === "gpt" ? (
+                            <Bot className="w-4 h-4 text-white" />
+                          ) : (
+                            <Sparkles className="w-4 h-4 text-primary-foreground" />
+                          )}
                         </div>
 
                         {/* Content */}
                         <div className="flex-1 min-w-0 space-y-1">
-                          {/* Name */}
-                          <span className="text-sm font-semibold text-foreground">Study AI</span>
+                          {/* Name with Model Badge */}
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold text-foreground">Study AI</span>
+                            {message.modelUsed && (
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium ${message.modelUsed === "llama"
+                                  ? "bg-orange-500/10 text-orange-500"
+                                  : "bg-green-500/10 text-green-500"
+                                }`}>
+                                {message.modelUsed === "llama" ? "Llama 3.3" : "GPT-4"}
+                              </span>
+                            )}
+                          </div>
 
                           {/* Message Content */}
                           <div className="text-[15px] leading-7 text-foreground">
@@ -322,6 +351,14 @@ export default function ChatArea({
                                 <RefreshCw className="w-3.5 h-3.5" />
                                 <span>Regenerate</span>
                               </button>
+                            )}
+
+                            {/* Feedback Buttons */}
+                            {!isLoading && messages.length > 1 && (
+                              <FeedbackButton
+                                question={messages[messages.findIndex(m => m.id === message.id) - 1]?.content || ""}
+                                answer={message.content}
+                              />
                             )}
                           </div>
                         </div>
@@ -485,6 +522,67 @@ export default function ChatArea({
                 </>
               )}
             </div>
+
+            {/* Model Selector Button with Dropdown */}
+            {!isGuest && onModelChange && (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowModelMenu(!showModelMenu)}
+                  className={`p-2 rounded-xl hover:bg-accent transition-all duration-200 
+                    ${showModelMenu ? "bg-accent" : ""}
+                    ${modelPreference === "gpt" ? "text-green-500" :
+                      modelPreference === "llama" ? "text-orange-500" : "text-purple-500"}`}
+                  title={`Model: ${modelPreference === "gpt" ? "GPT-4" : modelPreference === "llama" ? "Llama 3.3" : "Auto"}`}
+                >
+                  <Brain className="w-5 h-5" />
+                </button>
+
+                {/* Model Dropdown Menu - appears upward */}
+                {showModelMenu && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-10"
+                      onClick={() => setShowModelMenu(false)}
+                    />
+
+                    <div className="absolute bottom-full left-0 mb-2 w-52 py-2 bg-card/90 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl z-20 animate-fade-in">
+                      <div className="px-3 py-1.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                        Pilih Model AI
+                      </div>
+
+                      {[
+                        { id: "auto" as const, label: "Auto", desc: "GPT default, Llama jika ada knowledge", icon: Sparkles, color: "text-purple-500", bgColor: "bg-purple-500/10" },
+                        { id: "gpt" as const, label: "GPT-4", desc: "OpenAI - Pengetahuan umum", icon: Bot, color: "text-green-500", bgColor: "bg-green-500/10" },
+                        { id: "llama" as const, label: "Llama 3.3", desc: "Groq - Gratis + Knowledge", icon: ZapIcon, color: "text-orange-500", bgColor: "bg-orange-500/10" },
+                      ].map((model) => (
+                        <button
+                          key={model.id}
+                          type="button"
+                          onClick={() => {
+                            onModelChange(model.id);
+                            setShowModelMenu(false);
+                          }}
+                          className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm hover:bg-accent transition-colors
+                                     ${modelPreference === model.id ? "bg-accent" : ""}`}
+                        >
+                          <div className={`w-8 h-8 rounded-lg ${model.bgColor} flex items-center justify-center`}>
+                            <model.icon className={`w-4 h-4 ${model.color}`} />
+                          </div>
+                          <div className="text-left flex-1">
+                            <p className="font-medium text-foreground">{model.label}</p>
+                            <p className="text-[10px] text-muted-foreground">{model.desc}</p>
+                          </div>
+                          {modelPreference === model.id && (
+                            <Check className="w-4 h-4 text-primary" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
 
             {/* Text Input */}
             <textarea
