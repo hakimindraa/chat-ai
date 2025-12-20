@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Sparkles, Mail, Lock, ArrowRight, CheckCircle } from "lucide-react";
+import { Loader2, Sparkles, Mail, Lock, ArrowRight, CheckCircle, User } from "lucide-react";
 import Link from "next/link";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -33,7 +34,7 @@ export default function RegisterPage() {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, name }),
       });
 
       const data = await res.json();
@@ -83,6 +84,24 @@ export default function RegisterPage() {
                 {error}
               </div>
             )}
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Nama Lengkap</label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Nama Anda"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  className="w-full pl-11 pr-4 py-3 rounded-xl bg-muted border border-border text-foreground 
+                           placeholder:text-muted-foreground text-sm
+                           focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
+                           transition-all duration-200"
+                />
+              </div>
+            </div>
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">Email</label>

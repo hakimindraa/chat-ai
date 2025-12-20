@@ -55,8 +55,8 @@ export async function POST(req: Request) {
     // 3️⃣ CHECK GUEST LIMIT
     if (isGuest && guestChatCount >= GUEST_CHAT_LIMIT) {
       return NextResponse.json(
-        { 
-          error: "Batas chat gratis tercapai", 
+        {
+          error: "Batas chat gratis tercapai",
           requireLogin: true,
           message: "Anda telah mencapai batas 7 chat gratis. Silakan login atau daftar untuk chat tanpa batas!"
         },
@@ -66,13 +66,13 @@ export async function POST(req: Request) {
 
     // 4️⃣ GET CHAT HISTORY (only for logged in users)
     let conversationMessages: { role: "system" | "user" | "assistant"; content: string }[] = [];
-    
+
     const today = new Date().toLocaleDateString("id-ID", {
       day: "numeric",
-      month: "long", 
+      month: "long",
       year: "numeric"
     });
-    
+
     conversationMessages.push({
       role: "system",
       content: `Kamu adalah asisten belajar mahasiswa bernama AI Study Assistant. Jawab dengan bahasa sederhana dan jelas. ${!isGuest ? "Kamu bisa mengingat percakapan sebelumnya dengan user." : ""}
@@ -83,7 +83,13 @@ INFORMASI PENTING (UPDATE TERBARU):
 - Wakil Presiden Indonesia saat ini adalah Gibran Rakabuming Raka
 - Joko Widodo (Jokowi) adalah presiden sebelumnya (2014-2024)
 
-PENTING: Jangan gunakan format markdown seperti ###, **, *, atau simbol lainnya. Gunakan teks biasa saja dengan paragraf dan nomor jika perlu.`,
+FORMAT JAWABAN:
+- Gunakan markdown untuk memformat jawaban dengan baik
+- Untuk kode program, SELALU gunakan code block dengan bahasa yang sesuai, contoh: \`\`\`php, \`\`\`python, \`\`\`javascript, dll
+- Gunakan heading (##, ###) untuk membagi bagian
+- Gunakan bullet points dan numbered lists untuk poin-poin
+- Gunakan bold (**teks**) untuk penekanan penting
+- Gunakan inline code (\`kode\`) untuk nama fungsi, variabel, atau perintah`,
     });
 
     // Get history only for logged in users
@@ -153,15 +159,8 @@ PENTING: Jangan gunakan format markdown seperti ###, **, *, atau simbol lainnya.
       messages: conversationMessages,
     });
 
-    // Clean markdown from response
-    const rawReply = aiResponse.choices[0].message.content ?? "";
-    const aiReply = rawReply
-      .replace(/#{1,6}\s*/g, "")
-      .replace(/\*\*([^*]+)\*\*/g, "$1")
-      .replace(/\*([^*]+)\*/g, "$1")
-      .replace(/`([^`]+)`/g, "$1")
-      .replace(/```[\s\S]*?```/g, "")
-      .trim();
+    // Keep markdown formatting for proper rendering
+    const aiReply = (aiResponse.choices[0].message.content ?? "").trim();
 
     // 6️⃣ SAVE TO DATABASE (only for logged in users)
     if (!isGuest && userId) {

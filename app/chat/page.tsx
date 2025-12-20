@@ -11,8 +11,9 @@ type Message = {
   id: string;
   role: "user" | "assistant";
   content: string;
-  type?: "text" | "pdf";
+  type?: "text" | "pdf" | "image";
   fileName?: string;
+  imageUrl?: string;
 };
 
 type ChatItem = {
@@ -39,7 +40,7 @@ export default function ChatPage() {
   const [activeChat, setActiveChat] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  
+
   // Guest mode state
   const [isGuest, setIsGuest] = useState(true);
   const [guestChatCount, setGuestChatCount] = useState(0);
@@ -69,7 +70,7 @@ export default function ChatPage() {
     try {
       const token = localStorage.getItem("token");
       if (!token) return;
-      
+
       const res = await fetch("/api/chat/history", {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -79,7 +80,7 @@ export default function ChatPage() {
         const data = await res.json();
         const chats = data.chats || [];
         setChatList(chats);
-        
+
         const groups: ConversationGroup[] = chats.map((chat: ChatItem) => ({
           id: chat.id,
           firstMessage: chat.message,
@@ -101,7 +102,7 @@ export default function ChatPage() {
   const handleSelectChat = async (id: string) => {
     setActiveChat(id);
     setSidebarOpen(false);
-    
+
     const selectedChat = chatList.find(chat => chat.id === id);
     if (selectedChat) {
       const loadedMessages: Message[] = [
@@ -124,7 +125,7 @@ export default function ChatPage() {
 
   const handleDeleteChat = async (id: string) => {
     if (!confirm("Hapus chat ini?")) return;
-    
+
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(`/api/chat/history?id=${id}`, {
@@ -148,7 +149,7 @@ export default function ChatPage() {
 
   const handleDeleteAllChats = async () => {
     if (!confirm("Hapus SEMUA chat? Tindakan ini tidak dapat dibatalkan.")) return;
-    
+
     try {
       const token = localStorage.getItem("token");
       const res = await fetch("/api/chat/history?all=true", {
@@ -253,52 +254,100 @@ export default function ChatPage() {
       type: "text",
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    // Create placeholder for assistant message
+    const assistantMessageId = (Date.now() + 1).toString();
+    const assistantMessage: Message = {
+      id: assistantMessageId,
+      role: "assistant",
+      content: "",
+      type: "text",
+    };
+
+    setMessages((prev) => [...prev, userMessage, assistantMessage]);
     setIsLoading(true);
 
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch("/api/chat", {
+      const res = await fetch("/api/chat/stream", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(token && token !== "null" && token !== "undefined" 
-            ? { Authorization: `Bearer ${token}` } 
+          ...(token && token !== "null" && token !== "undefined"
+            ? { Authorization: `Bearer ${token}` }
             : {}),
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           message,
           guestChatCount: isGuest ? guestChatCount : 0,
         }),
       });
 
-      const data = await res.json();
-
-      if (res.status === 403 && data.requireLogin) {
-        setShowLoginPrompt(true);
-        // Remove the user message since it wasn't processed
-        setMessages((prev) => prev.slice(0, -1));
-        setIsLoading(false);
-        return;
+      // Check for non-stream error responses
+      if (!res.ok) {
+        const data = await res.json();
+        if (res.status === 403 && data.requireLogin) {
+          setShowLoginPrompt(true);
+          // Remove the messages since it wasn't processed
+          setMessages((prev) => prev.slice(0, -2));
+          setIsLoading(false);
+          return;
+        }
+        throw new Error(data.error || "Failed to send message");
       }
 
-      if (!res.ok) throw new Error(data.error || "Failed to send message");
+      // Handle streaming response
+      const reader = res.body?.getReader();
+      const decoder = new TextDecoder();
 
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: data.reply,
-        type: "text",
-      };
+      if (!reader) throw new Error("No reader available");
 
-      setMessages((prev) => [...prev, assistantMessage]);
+      let fullContent = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split("\n");
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(line.slice(6));
+
+              if (data.done) {
+                // Streaming complete
+                break;
+              }
+
+              if (data.content) {
+                fullContent += data.content;
+                // Update the assistant message with new content
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === assistantMessageId
+                      ? { ...msg, content: fullContent }
+                      : msg
+                  )
+                );
+              }
+
+              if (data.error) {
+                throw new Error(data.error);
+              }
+            } catch (e) {
+              // Skip invalid JSON lines
+            }
+          }
+        }
+      }
 
       // Update guest chat count
       if (isGuest) {
         const newCount = guestChatCount + 1;
         setGuestChatCount(newCount);
         localStorage.setItem("guestChatCount", newCount.toString());
-        
+
         if (newCount >= GUEST_CHAT_LIMIT) {
           setShowLoginPrompt(true);
         }
@@ -307,20 +356,218 @@ export default function ChatPage() {
       }
     } catch (error) {
       console.error("Error sending message:", error);
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: "Maaf, terjadi kesalahan. Silakan coba lagi.",
-        type: "text",
-      };
-      setMessages((prev) => [...prev, errorMessage]);
+      // Update the assistant message with error
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === assistantMessageId
+            ? { ...msg, content: "Maaf, terjadi kesalahan. Silakan coba lagi." }
+            : msg
+        )
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRegenerate = async (assistantMessageId: string) => {
+    // Find the user message that came before this assistant message
+    const messageIndex = messages.findIndex((m) => m.id === assistantMessageId);
+    if (messageIndex <= 0) return;
+
+    const userMessage = messages[messageIndex - 1];
+    if (userMessage.role !== "user") return;
+
+    // Clear the assistant message content and start regenerating
+    setMessages((prev) =>
+      prev.map((msg) =>
+        msg.id === assistantMessageId ? { ...msg, content: "" } : msg
+      )
+    );
+    setIsLoading(true);
+
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("/api/chat/stream", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && token !== "null" && token !== "undefined"
+            ? { Authorization: `Bearer ${token}` }
+            : {}),
+        },
+        body: JSON.stringify({
+          message: userMessage.content,
+          guestChatCount: isGuest ? guestChatCount : 0,
+        }),
+      });
+
+      if (!res.ok) throw new Error("Failed to regenerate");
+
+      const reader = res.body?.getReader();
+      const decoder = new TextDecoder();
+      if (!reader) throw new Error("No reader available");
+
+      let fullContent = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split("\n");
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (data.done) break;
+              if (data.content) {
+                fullContent += data.content;
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === assistantMessageId
+                      ? { ...msg, content: fullContent }
+                      : msg
+                  )
+                );
+              }
+            } catch {
+              // Skip invalid JSON
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error regenerating:", error);
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === assistantMessageId
+            ? { ...msg, content: "Maaf, gagal regenerate. Silakan coba lagi." }
+            : msg
+        )
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSendImage = async (message: string, imageFile: File) => {
+    // Check guest limit
+    if (isGuest && guestChatCount >= GUEST_CHAT_LIMIT) {
+      setShowLoginPrompt(true);
+      return;
+    }
+
+    // Create image URL for preview
+    const imageUrl = URL.createObjectURL(imageFile);
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: "user",
+      content: message,
+      type: "image",
+      fileName: imageFile.name,
+      imageUrl: imageUrl,
+    };
+
+    const assistantMessageId = (Date.now() + 1).toString();
+    const assistantMessage: Message = {
+      id: assistantMessageId,
+      role: "assistant",
+      content: "",
+      type: "text",
+    };
+
+    setMessages((prev) => [...prev, userMessage, assistantMessage]);
+    setIsLoading(true);
+
+    try {
+      const token = localStorage.getItem("token");
+      const formData = new FormData();
+      formData.append("image", imageFile);
+      formData.append("message", message);
+
+      const res = await fetch("/api/image", {
+        method: "POST",
+        headers: {
+          ...(token && token !== "null" && token !== "undefined"
+            ? { Authorization: `Bearer ${token}` }
+            : {}),
+        },
+        body: formData,
+      });
+
+      if (!res.ok) throw new Error("Failed to analyze image");
+
+      const reader = res.body?.getReader();
+      const decoder = new TextDecoder();
+      if (!reader) throw new Error("No reader available");
+
+      let fullContent = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split("\n");
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (data.done) break;
+              if (data.content) {
+                fullContent += data.content;
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === assistantMessageId
+                      ? { ...msg, content: fullContent }
+                      : msg
+                  )
+                );
+              }
+            } catch {
+              // Skip invalid JSON
+            }
+          }
+        }
+      }
+
+      // Update guest chat count
+      if (isGuest) {
+        const newCount = guestChatCount + 1;
+        setGuestChatCount(newCount);
+        localStorage.setItem("guestChatCount", newCount.toString());
+        if (newCount >= GUEST_CHAT_LIMIT) {
+          setShowLoginPrompt(true);
+        }
+      } else {
+        await loadChatHistory();
+      }
+    } catch (error) {
+      console.error("Error analyzing image:", error);
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === assistantMessageId
+            ? { ...msg, content: "Maaf, gagal menganalisis gambar. Silakan coba lagi." }
+            : msg
+        )
+      );
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="flex h-[100dvh] max-h-[100dvh] overflow-hidden fixed inset-0">
+    <div className="flex h-[100dvh] max-h-[100dvh] overflow-hidden fixed inset-0 bg-background">
+      {/* Background Gradient Orbs for Glassmorphism */}
+      <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 left-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-blue-500/5 rounded-full blur-3xl" />
+      </div>
+
       <Sidebar
         chats={chatList}
         activeChat={activeChat}
@@ -337,6 +584,8 @@ export default function ChatPage() {
       <ChatArea
         messages={messages}
         onSendMessage={handleSendMessage}
+        onSendImage={handleSendImage}
+        onRegenerate={handleRegenerate}
         isLoading={isLoading}
         isGuest={isGuest}
         guestChatCount={guestChatCount}
@@ -369,7 +618,7 @@ export default function ChatPage() {
               <p className="text-muted-foreground text-sm mb-6">
                 Daftar atau login untuk menikmati fitur tanpa batas:
               </p>
-              
+
               <ul className="space-y-3 mb-6">
                 <li className="flex items-center gap-3 text-sm text-foreground">
                   <div className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center">

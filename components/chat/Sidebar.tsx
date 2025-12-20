@@ -1,15 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { 
-  Plus, 
-  MessageCircle, 
-  LogOut, 
-  Menu, 
-  X, 
-  Trash2, 
-  Settings, 
-  Sun, 
+import {
+  Plus,
+  MessageCircle,
+  LogOut,
+  Menu,
+  X,
+  Trash2,
+  Settings,
+  Sun,
   Moon,
   Sparkles,
   User2,
@@ -56,20 +56,33 @@ export default function Sidebar({
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const [userName, setUserName] = useState<string>("");
   const [userEmail, setUserEmail] = useState<string>("");
   const [hoveredChat, setHoveredChat] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
-    const token = localStorage.getItem("token");
-    if (token) {
+
+    // Fetch user profile from API to get name
+    const fetchProfile = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+
       try {
-        const payload = JSON.parse(atob(token.split(".")[1]));
-        setUserEmail(payload.email || "User");
-      } catch {
-        setUserEmail("User");
+        const res = await fetch("/api/profile", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setUserName(data.user.name || "");
+          setUserEmail(data.user.email || "");
+        }
+      } catch (error) {
+        console.error("Failed to fetch profile:", error);
       }
-    }
+    };
+
+    fetchProfile();
   }, []);
 
   const handleLogout = () => {
@@ -91,9 +104,11 @@ export default function Sidebar({
       <aside
         className={`
           fixed lg:static inset-y-0 left-0 z-50
-          w-[280px] h-[100dvh] max-h-[100dvh] bg-sidebar border-r border-sidebar-border
+          w-[280px] h-[100dvh] max-h-[100dvh] 
+          bg-sidebar/80 backdrop-blur-xl border-r border-white/10
           flex flex-col overflow-hidden
           transform transition-all duration-300 ease-out
+          shadow-2xl shadow-black/10
           ${isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
         `}
       >
@@ -118,8 +133,8 @@ export default function Sidebar({
             }}
             className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl
                        bg-primary text-primary-foreground font-medium text-sm
-                       hover:opacity-90 transition-all duration-200 active:scale-[0.98]
-                       shadow-lg shadow-primary/20"
+                       hover:opacity-90 hover-lift hover-glow active:scale-[0.98]
+                       shadow-lg shadow-primary/20 transition-all duration-300"
           >
             <Plus className="w-4 h-4" strokeWidth={2.5} />
             <span>New Chat</span>
@@ -142,7 +157,7 @@ export default function Sidebar({
               </button>
             </div>
           )}
-          
+
           <div className="space-y-1">
             {chats.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
@@ -168,10 +183,9 @@ export default function Sidebar({
                     className={`
                       w-full flex items-center gap-3 px-3 py-2.5 rounded-xl
                       text-left text-sm transition-all duration-200 pr-10
-                      ${
-                        activeChat === chat.id
-                          ? "bg-sidebar-accent text-sidebar-foreground font-medium"
-                          : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                      ${activeChat === chat.id
+                        ? "bg-sidebar-accent text-sidebar-foreground font-medium"
+                        : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
                       }
                     `}
                   >
@@ -181,7 +195,7 @@ export default function Sidebar({
                       {chat.message.length > 28 ? "..." : ""}
                     </span>
                   </button>
-                  
+
                   {(hoveredChat === chat.id || activeChat === chat.id) && (
                     <button
                       onClick={(e) => {
@@ -212,7 +226,7 @@ export default function Sidebar({
                 <span className="text-xs font-bold text-primary">{guestChatCount}/{guestChatLimit}</span>
               </div>
               <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
-                <div 
+                <div
                   className="h-full bg-gradient-to-r from-primary to-purple-500 rounded-full transition-all duration-300"
                   style={{ width: `${(guestChatCount / guestChatLimit) * 100}%` }}
                 />
@@ -298,7 +312,7 @@ export default function Sidebar({
                   </div>
                   <div className="flex flex-col">
                     <span className="text-xs font-medium text-sidebar-foreground truncate max-w-[120px]">
-                      {userEmail.split("@")[0]}
+                      {userName || userEmail.split("@")[0] || "User"}
                     </span>
                     <span className="text-[10px] text-sidebar-foreground/40 truncate max-w-[120px]">
                       {userEmail}
