@@ -16,9 +16,13 @@ import {
   Zap,
   RefreshCw,
   ImageIcon,
-  Plus
+  Plus,
+  Bot,
+  Zap as ZapIcon,
+  Brain,
+  ChevronUp
 } from "lucide-react";
-import { Bot, Zap as ZapIcon, Brain, ChevronUp } from "lucide-react";
+import ModelSwitch from "./ModelSwitch";
 import { toast } from "sonner";
 import MarkdownRenderer from "./MarkdownRenderer";
 import FeedbackButton from "./FeedbackButton";
@@ -285,10 +289,10 @@ export default function ChatArea({
                       <div className="flex gap-4">
                         {/* Avatar - Color changes based on model */}
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${message.modelUsed === "llama"
-                            ? "bg-gradient-to-br from-orange-500 to-amber-500"
-                            : message.modelUsed === "gpt"
-                              ? "bg-gradient-to-br from-green-500 to-emerald-500"
-                              : "bg-primary"
+                          ? "bg-gradient-to-br from-orange-500 to-amber-500"
+                          : message.modelUsed === "gpt"
+                            ? "bg-gradient-to-br from-green-500 to-emerald-500"
+                            : "bg-primary"
                           }`}>
                           {message.modelUsed === "llama" ? (
                             <ZapIcon className="w-4 h-4 text-white" />
@@ -306,8 +310,8 @@ export default function ChatArea({
                             <span className="text-sm font-semibold text-foreground">Study AI</span>
                             {message.modelUsed && (
                               <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium ${message.modelUsed === "llama"
-                                  ? "bg-orange-500/10 text-orange-500"
-                                  : "bg-green-500/10 text-green-500"
+                                ? "bg-orange-500/10 text-orange-500"
+                                : "bg-green-500/10 text-green-500"
                                 }`}>
                                 {message.modelUsed === "llama" ? "Llama 3.3" : "GPT-4"}
                               </span>
@@ -524,7 +528,8 @@ export default function ChatArea({
             </div>
 
             {/* Model Selector Button with Dropdown */}
-            {!isGuest && onModelChange && (
+            {!isGuest && onModelChange ? (
+              // Logged in user: Show normal switcher
               <div className="relative">
                 <button
                   type="button"
@@ -538,19 +543,17 @@ export default function ChatArea({
                   <Brain className="w-5 h-5" />
                 </button>
 
-                {/* Model Dropdown Menu - appears upward */}
+                {/* Model Dropdown Menu */}
                 {showModelMenu && (
                   <>
                     <div
                       className="fixed inset-0 z-10"
                       onClick={() => setShowModelMenu(false)}
                     />
-
                     <div className="absolute bottom-full left-0 mb-2 w-52 py-2 bg-card/90 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl z-20 animate-fade-in">
                       <div className="px-3 py-1.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
                         Pilih Model AI
                       </div>
-
                       {[
                         { id: "auto" as const, label: "Auto", desc: "GPT default, Llama jika ada knowledge", icon: Sparkles, color: "text-purple-500", bgColor: "bg-purple-500/10" },
                         { id: "gpt" as const, label: "GPT-4", desc: "OpenAI - Pengetahuan umum", icon: Bot, color: "text-green-500", bgColor: "bg-green-500/10" },
@@ -581,6 +584,15 @@ export default function ChatArea({
                     </div>
                   </>
                 )}
+              </div>
+            ) : (
+              // Guest user: Show restricted ModelSwitch component
+              <div className="relative">
+                <ModelSwitch
+                  value={modelPreference || "auto"}
+                  onChange={(val) => onModelChange && onModelChange(val)}
+                  isGuest={true}
+                />
               </div>
             )}
 

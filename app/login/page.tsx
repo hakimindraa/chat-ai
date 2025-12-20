@@ -136,6 +136,25 @@ export default function LoginPage() {
             Create one
           </Link>
         </p>
+
+        <div className="mt-8 relative">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-border"></div>
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-background px-2 text-muted-foreground">Or</span>
+          </div>
+        </div>
+
+        <button
+          onClick={() => router.push("/chat")}
+          className="mt-6 w-full py-3 rounded-xl border border-border bg-card hover:bg-muted/50 
+                      text-foreground font-medium text-sm transition-all duration-200
+                      flex items-center justify-center gap-2 group"
+        >
+          <span>Continue as Guest</span>
+          <ArrowRight className="w-4 h-4 opacity-50 group-hover:translate-x-1 group-hover:opacity-100 transition-all" />
+        </button>
       </div>
     </div>
   );
