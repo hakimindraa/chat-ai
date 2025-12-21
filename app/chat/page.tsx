@@ -7,6 +7,7 @@ import ChatArea from "@/components/chat/ChatArea";
 import ModelSwitch from "@/components/chat/ModelSwitch";
 import { LogIn, UserPlus, X, Sparkles } from "lucide-react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 
 type Message = {
   id: string;
@@ -36,6 +37,7 @@ const GUEST_CHAT_LIMIT = 7;
 
 export default function ChatPage() {
   const router = useRouter();
+  const { data: session, status } = useSession();
   const [messages, setMessages] = useState<Message[]>([]);
   const [chatList, setChatList] = useState<ChatItem[]>([]);
   const [conversationGroups, setConversationGroups] = useState<ConversationGroup[]>([]);
@@ -54,10 +56,13 @@ export default function ChatPage() {
   // Check auth and load guest chat count
   useEffect(() => {
     const token = localStorage.getItem("token");
-    if (token && token !== "null" && token !== "undefined") {
+    const hasToken = token && token !== "null" && token !== "undefined";
+    const hasSession = status === "authenticated" && !!session?.user;
+
+    if (hasToken || hasSession) {
       setIsGuest(false);
       loadChatHistory();
-    } else {
+    } else if (status !== "loading") {
       setIsGuest(true);
       // Load guest chat count from localStorage
       const savedCount = localStorage.getItem("guestChatCount");
@@ -69,7 +74,7 @@ export default function ChatPage() {
         }
       }
     }
-  }, []);
+  }, [session, status]);
 
   const loadChatHistory = async () => {
     try {
