@@ -78,17 +78,18 @@ export default function Sidebar({
 
   // Fetch knowledge list
   const fetchKnowledge = async () => {
+    // Works for both JWT token users and NextAuth session users
     const token = localStorage.getItem("token");
-    if (!token) return;
 
     setLoadingKnowledge(true);
     try {
       const res = await fetch("/api/knowledge", {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: "include", // Include cookies for NextAuth session
       });
       if (res.ok) {
         const data = await res.json();
-        setKnowledgeList(data.knowledge || []);
+        setKnowledgeList(data || []);
       }
     } catch (error) {
       console.error("Failed to fetch knowledge:", error);
@@ -102,8 +103,11 @@ export default function Sidebar({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Check if user is logged in (either via token or NextAuth session)
     const token = localStorage.getItem("token");
-    if (!token) {
+    const isLoggedIn = token || session?.user;
+
+    if (!isLoggedIn) {
       toast.error("Login diperlukan untuk upload dokumen");
       return;
     }
@@ -112,15 +116,19 @@ export default function Sidebar({
     try {
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("title", file.name);
+      formData.append("source", "upload");
 
       const res = await fetch("/api/knowledge", {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: "include", // Include cookies for NextAuth session
         body: formData,
       });
 
       if (res.ok) {
-        toast.success("Dokumen berhasil diupload!");
+        const data = await res.json();
+        toast.success(data.message || "Dokumen berhasil diupload!");
         fetchKnowledge();
       } else {
         const data = await res.json();
@@ -137,17 +145,20 @@ export default function Sidebar({
   // Handle delete knowledge
   const handleDeleteKnowledge = async (id: number) => {
     const token = localStorage.getItem("token");
-    if (!token) return;
 
     try {
       const res = await fetch(`/api/knowledge?id=${id}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: "include", // Include cookies for NextAuth session
       });
 
       if (res.ok) {
         toast.success("Dokumen berhasil dihapus");
         setKnowledgeList(prev => prev.filter(k => k.id !== id));
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Gagal menghapus dokumen");
       }
     } catch (error) {
       toast.error("Gagal menghapus dokumen");
