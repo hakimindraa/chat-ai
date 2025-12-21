@@ -641,6 +641,7 @@ export default function ChatPage() {
         isGuest={isGuest}
         guestChatCount={guestChatCount}
         guestChatLimit={GUEST_CHAT_LIMIT}
+        modelPreference={modelPreference}
       />
       <ChatArea
         messages={messages}

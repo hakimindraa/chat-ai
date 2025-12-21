@@ -45,6 +45,7 @@ interface SidebarProps {
   isGuest?: boolean;
   guestChatCount?: number;
   guestChatLimit?: number;
+  modelPreference?: "auto" | "gpt" | "llama";
 }
 
 export default function Sidebar({
@@ -59,6 +60,7 @@ export default function Sidebar({
   isGuest = false,
   guestChatCount = 0,
   guestChatLimit = 7,
+  modelPreference = "auto",
 }: SidebarProps) {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
@@ -209,7 +211,9 @@ export default function Sidebar({
             </div>
             <div>
               <h1 className="font-semibold text-sidebar-foreground text-sm">Study AI</h1>
-              <p className="text-[10px] text-sidebar-foreground/50">Powered by GPT-4</p>
+              <p className="text-[10px] text-sidebar-foreground/50">
+                Powered by {modelPreference === "llama" ? "Llama AI" : modelPreference === "gpt" ? "GPT-4" : "GPT-4 / Llama"}
+              </p>
             </div>
           </div>
 
