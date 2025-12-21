@@ -303,12 +303,12 @@ export default function ChatArea({
 
                       {/* Message Content - Clean text style */}
                       <div className="prose prose-sm dark:prose-invert max-w-none
-                                      prose-p:text-[15px] prose-p:leading-7 prose-p:text-foreground prose-p:my-3
-                                      prose-headings:font-semibold prose-headings:text-foreground prose-headings:mt-6 prose-headings:mb-3
+                                      prose-p:text-[15px] prose-p:leading-7 prose-p:text-gray-800 dark:prose-p:text-gray-100 prose-p:my-3
+                                      prose-headings:font-semibold prose-headings:text-gray-900 dark:prose-headings:text-white prose-headings:mt-6 prose-headings:mb-3
                                       prose-h2:text-lg prose-h3:text-base
-                                      prose-li:text-[15px] prose-li:leading-7 prose-li:text-foreground prose-li:my-1
+                                      prose-li:text-[15px] prose-li:leading-7 prose-li:text-gray-800 dark:prose-li:text-gray-100 prose-li:my-1
                                       prose-ul:my-3 prose-ol:my-3
-                                      prose-strong:text-foreground prose-strong:font-semibold
+                                      prose-strong:text-gray-900 dark:prose-strong:text-white prose-strong:font-semibold
                                       prose-a:text-primary prose-a:no-underline hover:prose-a:underline
                                       prose-code:text-sm prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded
                                       prose-pre:bg-muted prose-pre:border prose-pre:border-border prose-pre:rounded-lg">
