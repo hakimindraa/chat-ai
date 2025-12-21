@@ -1,6 +1,8 @@
 import OpenAI from "openai";
 import { groq, DEFAULT_GROQ_MODEL } from "@/lib/groq";
 import { prisma } from "@/lib/prisma";
+import { findSimilarDocuments } from "@/lib/embedding";
+import { auth } from "@/auth";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const jwt = require("jsonwebtoken");
@@ -13,11 +15,12 @@ const GUEST_CHAT_LIMIT = 7;
 
 export async function POST(req: Request) {
     try {
-        // 1️⃣ CHECK AUTH - SUPPORT GUEST MODE
-        const authHeader = req.headers.get("authorization");
+        // 1️⃣ CHECK AUTH - SUPPORT BOTH JWT AND NEXTAUTH
         let userId: number | null = null;
         let isGuest = true;
 
+        // Try JWT token first
+        const authHeader = req.headers.get("authorization");
         if (authHeader) {
             const token = authHeader.split(" ")[1];
             if (token && token !== "null" && token !== "undefined") {
@@ -35,8 +38,17 @@ export async function POST(req: Request) {
                         }
                     }
                 } catch {
-                    isGuest = true;
+                    // Token invalid, will try NextAuth
                 }
+            }
+        }
+
+        // Try NextAuth session (for Google OAuth users)
+        if (!userId) {
+            const session = await auth();
+            if (session?.user?.id) {
+                userId = parseInt(session.user.id, 10);
+                isGuest = false;
             }
         }
 
@@ -61,7 +73,41 @@ export async function POST(req: Request) {
             );
         }
 
-        // 4️⃣ BUILD CONVERSATION MESSAGES
+        // 4️⃣ SEARCH KNOWLEDGE BASE (PRO RAG)
+        let knowledgeContext = "";
+        if (userId) {
+            try {
+                const knowledge = await prisma.knowledge.findMany({
+                    where: { userId },
+                    select: {
+                        id: true,
+                        content: true,
+                        embedding: true,
+                    },
+                });
+
+                if (knowledge.length > 0) {
+                    const results = await findSimilarDocuments(
+                        message,
+                        knowledge.map(k => ({
+                            id: k.id,
+                            content: k.content,
+                            embedding: k.embedding || undefined,
+                        })),
+                        3 // Top 3 results
+                    );
+
+                    if (results.length > 0) {
+                        knowledgeContext = "\n\nKONTEKS DARI KNOWLEDGE BASE USER (gunakan ini untuk menjawab jika relevan):\n" +
+                            results.map((r, i) => `[Dokumen ${i + 1} - Relevansi: ${Math.round(r.score * 100)}%]\n${r.content}`).join("\n\n---\n\n");
+                    }
+                }
+            } catch (error) {
+                console.error("Knowledge search error:", error);
+            }
+        }
+
+        // 5️⃣ BUILD CONVERSATION MESSAGES
         const today = new Date().toLocaleDateString("id-ID", {
             day: "numeric",
             month: "long",
@@ -75,6 +121,7 @@ INFORMASI PENTING (UPDATE TERBARU):
 - Presiden Indonesia saat ini adalah Prabowo Subianto, dilantik pada 20 Oktober 2024
 - Wakil Presiden Indonesia saat ini adalah Gibran Rakabuming Raka
 - Joko Widodo (Jokowi) adalah presiden sebelumnya (2014-2024)
+${knowledgeContext}
 
 FORMAT JAWABAN:
 - Gunakan markdown untuk memformat jawaban dengan baik

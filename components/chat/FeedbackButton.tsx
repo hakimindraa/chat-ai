@@ -25,8 +25,9 @@ export default function FeedbackButton({ question, answer, onFeedback }: Feedbac
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
                 },
+                credentials: "include", // Include cookies for NextAuth session
                 body: JSON.stringify({
                     question,
                     answer,
@@ -72,10 +73,10 @@ export default function FeedbackButton({ question, answer, onFeedback }: Feedbac
                 onClick={() => handleFeedback(true)}
                 disabled={submitted !== null}
                 className={`p-1.5 rounded-lg transition-all duration-200 ${submitted === "positive"
-                        ? "bg-green-500/20 text-green-500"
-                        : submitted !== null
-                            ? "text-muted-foreground/50 cursor-not-allowed"
-                            : "text-muted-foreground hover:text-green-500 hover:bg-green-500/10"
+                    ? "bg-green-500/20 text-green-500"
+                    : submitted !== null
+                        ? "text-muted-foreground/50 cursor-not-allowed"
+                        : "text-muted-foreground hover:text-green-500 hover:bg-green-500/10"
                     }`}
                 title="Jawaban bagus - simpan ke knowledge base"
             >
@@ -85,10 +86,10 @@ export default function FeedbackButton({ question, answer, onFeedback }: Feedbac
                 onClick={() => handleFeedback(false)}
                 disabled={submitted !== null}
                 className={`p-1.5 rounded-lg transition-all duration-200 ${submitted === "negative"
-                        ? "bg-red-500/20 text-red-500"
-                        : submitted !== null
-                            ? "text-muted-foreground/50 cursor-not-allowed"
-                            : "text-muted-foreground hover:text-red-500 hover:bg-red-500/10"
+                    ? "bg-red-500/20 text-red-500"
+                    : submitted !== null
+                        ? "text-muted-foreground/50 cursor-not-allowed"
+                        : "text-muted-foreground hover:text-red-500 hover:bg-red-500/10"
                     }`}
                 title="Jawaban kurang bagus"
             >

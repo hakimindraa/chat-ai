@@ -1,15 +1,17 @@
 import { prisma } from "@/lib/prisma";
-import { simpleEmbed } from "@/lib/embedding";
+import { getEmbedding } from "@/lib/embedding";
+import { auth } from "@/auth";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const jwt = require("jsonwebtoken");
 
 export async function POST(req: Request) {
     try {
-        // 1️⃣ CHECK AUTH
-        const authHeader = req.headers.get("authorization");
+        // 1️⃣ CHECK AUTH - Support both JWT token and NextAuth session
         let userId: number | null = null;
 
+        // Try JWT token first (for email/password users)
+        const authHeader = req.headers.get("authorization");
         if (authHeader) {
             const token = authHeader.split(" ")[1];
             if (token && token !== "null" && token !== "undefined") {
@@ -17,11 +19,16 @@ export async function POST(req: Request) {
                     const decoded: any = jwt.verify(token, process.env.JWT_SECRET!);
                     userId = decoded.userId;
                 } catch {
-                    return new Response(JSON.stringify({ error: "Token tidak valid" }), {
-                        status: 401,
-                        headers: { "Content-Type": "application/json" },
-                    });
+                    // Token invalid, will try NextAuth session
                 }
+            }
+        }
+
+        // Try NextAuth session (for Google OAuth users)
+        if (!userId) {
+            const session = await auth();
+            if (session?.user?.id) {
+                userId = parseInt(session.user.id, 10);
             }
         }
 
@@ -44,9 +51,9 @@ export async function POST(req: Request) {
 
         // 3️⃣ IF POSITIVE FEEDBACK, SAVE TO KNOWLEDGE BASE
         if (isPositive) {
-            // Create Q&A entry in knowledge base
+            // Create Q&A entry in knowledge base with AI embedding
             const content = `Pertanyaan: ${question}\n\nJawaban: ${answer}`;
-            const embedding = simpleEmbed(content);
+            const embedding = await getEmbedding(content);
 
             await prisma.knowledge.create({
                 data: {
