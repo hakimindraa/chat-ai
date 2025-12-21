@@ -282,90 +282,80 @@ export default function ChatArea({
                   </div>
                 )}
 
-                {/* AI Response - Full Width without Bubble */}
+                {/* AI Response - Clean text-only style */}
                 {message.role === "assistant" && (
-                  <div className="group py-6 mb-2">
+                  <div className="group py-4">
                     <div className="max-w-3xl mx-auto px-4 sm:px-6">
-                      <div className="flex gap-4">
-                        {/* Avatar - Color changes based on model */}
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${message.modelUsed === "llama"
-                          ? "bg-gradient-to-br from-orange-500 to-amber-500"
-                          : message.modelUsed === "gpt"
-                            ? "bg-gradient-to-br from-green-500 to-emerald-500"
-                            : "bg-primary"
-                          }`}>
-                          {message.modelUsed === "llama" ? (
-                            <ZapIcon className="w-4 h-4 text-white" />
-                          ) : message.modelUsed === "gpt" ? (
-                            <Bot className="w-4 h-4 text-white" />
+                      {/* Simple header with name and model badge */}
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="text-sm font-medium text-muted-foreground">
+                          Study AI
+                        </span>
+                        {message.modelUsed && (
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${message.modelUsed === "llama"
+                            ? "bg-orange-500/10 text-orange-400"
+                            : "bg-green-500/10 text-green-400"
+                            }`}>
+                            {message.modelUsed === "llama" ? "Llama" : "GPT"}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Message Content - Clean text style */}
+                      <div className="prose prose-sm dark:prose-invert max-w-none
+                                      prose-p:text-[15px] prose-p:leading-7 prose-p:text-foreground prose-p:my-3
+                                      prose-headings:font-semibold prose-headings:text-foreground prose-headings:mt-6 prose-headings:mb-3
+                                      prose-h2:text-lg prose-h3:text-base
+                                      prose-li:text-[15px] prose-li:leading-7 prose-li:text-foreground prose-li:my-1
+                                      prose-ul:my-3 prose-ol:my-3
+                                      prose-strong:text-foreground prose-strong:font-semibold
+                                      prose-a:text-primary prose-a:no-underline hover:prose-a:underline
+                                      prose-code:text-sm prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded
+                                      prose-pre:bg-muted prose-pre:border prose-pre:border-border prose-pre:rounded-lg">
+                        <MarkdownRenderer content={message.content} />
+                      </div>
+
+                      {/* Action Buttons - Subtle on hover */}
+                      <div className="flex items-center gap-1 mt-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                        <button
+                          onClick={() => copyToClipboard(message.content, message.id)}
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs 
+                                     text-muted-foreground hover:text-foreground hover:bg-muted/50
+                                     transition-all duration-200"
+                        >
+                          {copiedId === message.id ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 text-green-500" />
+                              <span className="text-green-500">Copied!</span>
+                            </>
                           ) : (
-                            <Sparkles className="w-4 h-4 text-primary-foreground" />
+                            <>
+                              <Copy className="w-3.5 h-3.5" />
+                              <span>Copy</span>
+                            </>
                           )}
-                        </div>
+                        </button>
 
-                        {/* Content */}
-                        <div className="flex-1 min-w-0 space-y-1">
-                          {/* Name with Model Badge */}
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-semibold text-foreground">Study AI</span>
-                            {message.modelUsed && (
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium ${message.modelUsed === "llama"
-                                ? "bg-orange-500/10 text-orange-500"
-                                : "bg-green-500/10 text-green-500"
-                                }`}>
-                                {message.modelUsed === "llama" ? "Llama 3.3" : "GPT-4"}
-                              </span>
-                            )}
-                          </div>
+                        {/* Regenerate Button */}
+                        {onRegenerate && !isLoading && (
+                          <button
+                            onClick={() => onRegenerate(message.id)}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs 
+                                       text-muted-foreground hover:text-foreground hover:bg-muted/50
+                                       transition-all duration-200"
+                          >
+                            <RefreshCw className="w-3.5 h-3.5" />
+                            <span>Regenerate</span>
+                          </button>
+                        )}
 
-                          {/* Message Content */}
-                          <div className="text-[15px] leading-7 text-foreground">
-                            <MarkdownRenderer content={message.content} />
-                          </div>
-
-                          {/* Action Buttons */}
-                          <div className="flex items-center gap-1 pt-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                            <button
-                              onClick={() => copyToClipboard(message.content, message.id)}
-                              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs 
-                                         text-muted-foreground hover:text-foreground hover:bg-muted
-                                         transition-all duration-200"
-                            >
-                              {copiedId === message.id ? (
-                                <>
-                                  <Check className="w-3.5 h-3.5 text-green-500" />
-                                  <span className="text-green-500">Copied!</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Copy className="w-3.5 h-3.5" />
-                                  <span>Copy</span>
-                                </>
-                              )}
-                            </button>
-
-                            {/* Regenerate Button */}
-                            {onRegenerate && !isLoading && (
-                              <button
-                                onClick={() => onRegenerate(message.id)}
-                                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs 
-                                           text-muted-foreground hover:text-foreground hover:bg-muted
-                                           transition-all duration-200"
-                              >
-                                <RefreshCw className="w-3.5 h-3.5" />
-                                <span>Regenerate</span>
-                              </button>
-                            )}
-
-                            {/* Feedback Buttons */}
-                            {!isLoading && messages.length > 1 && (
-                              <FeedbackButton
-                                question={messages[messages.findIndex(m => m.id === message.id) - 1]?.content || ""}
-                                answer={message.content}
-                              />
-                            )}
-                          </div>
-                        </div>
+                        {/* Feedback Buttons */}
+                        {!isLoading && messages.length > 1 && (
+                          <FeedbackButton
+                            question={messages[messages.findIndex(m => m.id === message.id) - 1]?.content || ""}
+                            answer={message.content}
+                          />
+                        )}
                       </div>
                     </div>
                   </div>
@@ -373,25 +363,20 @@ export default function ChatArea({
               </div>
             ))}
 
-            {/* Loading State */}
+            {/* Loading State - Clean style */}
             {isLoading && (
-              <div className="group animate-fade-in py-6">
+              <div className="group animate-fade-in py-4">
                 <div className="max-w-3xl mx-auto px-4 sm:px-6">
-                  <div className="flex gap-4">
-                    <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center shrink-0">
-                      <Sparkles className="w-4 h-4 text-primary-foreground animate-pulse" />
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-sm font-medium text-muted-foreground">Study AI</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <div className="flex gap-1">
+                      <span className="w-1.5 h-1.5 bg-muted-foreground/50 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                      <span className="w-1.5 h-1.5 bg-muted-foreground/50 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                      <span className="w-1.5 h-1.5 bg-muted-foreground/50 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
                     </div>
-                    <div className="flex-1 space-y-1">
-                      <span className="text-sm font-semibold text-foreground">Study AI</span>
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <div className="flex gap-1.5">
-                          <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                          <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                          <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
-                        </div>
-                        <span className="text-sm">Generating response...</span>
-                      </div>
-                    </div>
+                    <span className="text-sm">Thinking...</span>
                   </div>
                 </div>
               </div>

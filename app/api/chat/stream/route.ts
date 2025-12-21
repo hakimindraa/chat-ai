@@ -3,6 +3,15 @@ import { groq, DEFAULT_GROQ_MODEL } from "@/lib/groq";
 import { prisma } from "@/lib/prisma";
 import { findSimilarDocuments } from "@/lib/embedding";
 import { auth } from "@/auth";
+import {
+    RAG_CONFIG,
+    TOKEN_CONFIG,
+    logAI,
+    getTemperature,
+    isDocumentQuery,
+    isCodeQuery
+} from "@/lib/ai/config";
+import { buildSystemPrompt } from "@/lib/ai/prompts";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const jwt = require("jsonwebtoken");
@@ -14,6 +23,8 @@ const openai = new OpenAI({
 const GUEST_CHAT_LIMIT = 7;
 
 export async function POST(req: Request) {
+    const startTime = Date.now();
+
     try {
         // 1️⃣ CHECK AUTH - SUPPORT BOTH JWT AND NEXTAUTH
         let userId: number | null = null;
@@ -75,6 +86,10 @@ export async function POST(req: Request) {
 
         // 4️⃣ SEARCH KNOWLEDGE BASE (PRO RAG)
         let knowledgeContext = "";
+        let hasRagContext = false;
+        const userIsAskingAboutDocs = isDocumentQuery(message);
+        const userIsAskingCode = isCodeQuery(message);
+
         if (userId) {
             try {
                 const knowledge = await prisma.knowledge.findMany({
@@ -86,6 +101,16 @@ export async function POST(req: Request) {
                     },
                 });
 
+                logAI({
+                    level: "info",
+                    event: "RAG_SEARCH_START",
+                    userId,
+                    metadata: {
+                        documentCount: knowledge.length,
+                        isDocumentQuery: userIsAskingAboutDocs
+                    }
+                });
+
                 if (knowledge.length > 0) {
                     const results = await findSimilarDocuments(
                         message,
@@ -94,16 +119,44 @@ export async function POST(req: Request) {
                             content: k.content,
                             embedding: k.embedding || undefined,
                         })),
-                        3 // Top 3 results
+                        RAG_CONFIG.TOP_K
                     );
 
                     if (results.length > 0) {
-                        knowledgeContext = "\n\nKONTEKS DARI KNOWLEDGE BASE USER (gunakan ini untuk menjawab jika relevan):\n" +
-                            results.map((r, i) => `[Dokumen ${i + 1} - Relevansi: ${Math.round(r.score * 100)}%]\n${r.content}`).join("\n\n---\n\n");
+                        hasRagContext = true;
+                        knowledgeContext = results
+                            .map((r, i) => `[Dokumen ${i + 1} - Relevansi: ${Math.round(r.score * 100)}%]\n${r.content}`)
+                            .join("\n\n---\n\n");
+
+                        logAI({
+                            level: "info",
+                            event: "RAG_CONTEXT_FOUND",
+                            userId,
+                            ragUsed: true,
+                            contextFound: true,
+                            metadata: {
+                                resultCount: results.length,
+                                topScore: results[0]?.score
+                            }
+                        });
+                    } else {
+                        logAI({
+                            level: "warn",
+                            event: "RAG_NO_RELEVANT_CONTEXT",
+                            userId,
+                            ragUsed: true,
+                            contextFound: false,
+                            metadata: { isDocumentQuery: userIsAskingAboutDocs }
+                        });
                     }
                 }
             } catch (error) {
-                console.error("Knowledge search error:", error);
+                logAI({
+                    level: "error",
+                    event: "RAG_SEARCH_ERROR",
+                    userId,
+                    error: String(error)
+                });
             }
         }
 
@@ -114,35 +167,25 @@ export async function POST(req: Request) {
             year: "numeric",
         });
 
-        const buildSystemPrompt = (model: "gpt" | "llama") => `Kamu adalah asisten belajar mahasiswa bernama AI Study Assistant${model === "llama" ? " yang menggunakan Llama AI" : ""}. Jawab dengan bahasa sederhana dan jelas. ${!isGuest ? "Kamu bisa mengingat percakapan sebelumnya dengan user." : ""}
-
-INFORMASI PENTING (UPDATE TERBARU):
-- Tanggal hari ini: ${today}
-- Presiden Indonesia saat ini adalah Prabowo Subianto, dilantik pada 20 Oktober 2024
-- Wakil Presiden Indonesia saat ini adalah Gibran Rakabuming Raka
-- Joko Widodo (Jokowi) adalah presiden sebelumnya (2014-2024)
-${knowledgeContext}
-
-FORMAT JAWABAN:
-- Gunakan markdown untuk memformat jawaban dengan baik
-- Untuk kode program, SELALU gunakan code block dengan bahasa yang sesuai, contoh: \`\`\`php, \`\`\`python, \`\`\`javascript, dll
-- Gunakan heading (##, ###) untuk membagi bagian
-- Gunakan bullet points dan numbered lists untuk poin-poin
-- Gunakan bold (**teks**) untuk penekanan penting
-- Gunakan inline code (\`kode\`) untuk nama fungsi, variabel, atau perintah
-
-FORMAT MATEMATIKA (PENTING):
-- Untuk rumus matematika, SELALU gunakan format LaTeX
-- Rumus inline: gunakan $...$, contoh: $x^2 + y^2 = z^2$
-- Rumus block: gunakan $$...$$, contoh: $$\\frac{a}{b}$$
-- Contoh: pangkat $x^2$, pecahan $\\frac{1}{2}$, akar $\\sqrt{x}$, integral $\\int_0^1 x\\,dx$`;
+        // Calculate temperature based on context
+        const temperature = getTemperature(hasRagContext, userIsAskingCode);
 
         const buildConversationMessages = async (model: "gpt" | "llama") => {
             const conversationMessages: { role: "system" | "user" | "assistant"; content: string }[] = [];
 
+            // Build system prompt using new modular approach
+            const systemPrompt = buildSystemPrompt({
+                model,
+                isGuest,
+                today,
+                ragContext: knowledgeContext,
+                hasRagContext,
+                isDocumentQuery: userIsAskingAboutDocs,
+            });
+
             conversationMessages.push({
                 role: "system",
-                content: buildSystemPrompt(model),
+                content: systemPrompt,
             });
 
             // Get history only for logged in users
@@ -150,7 +193,7 @@ FORMAT MATEMATIKA (PENTING):
                 const chatHistory = await prisma.chat.findMany({
                     where: { userId },
                     orderBy: { createdAt: "desc" },
-                    take: 10,
+                    take: TOKEN_CONFIG.HISTORY_LIMIT,
                 });
 
                 const reversedHistory = chatHistory.reverse();
@@ -167,22 +210,44 @@ FORMAT MATEMATIKA (PENTING):
             return conversationMessages;
         };
 
-        // 5️⃣ TRY GPT FIRST, FALLBACK TO GROQ
+        // 6️⃣ TRY GPT FIRST, FALLBACK TO GROQ
         let stream: any;
         let usedModel: "gpt" | "llama" = "gpt";
         let isFallback = false;
 
         try {
+            logAI({
+                level: "info",
+                event: "MODEL_CALL_START",
+                userId: userId || undefined,
+                model: "gpt-4o-mini",
+                ragUsed: hasRagContext,
+                metadata: { temperature }
+            });
+
             const conversationMessages = await buildConversationMessages("gpt");
             stream = await openai.chat.completions.create({
                 model: "gpt-4o-mini",
                 messages: conversationMessages,
                 stream: true,
+                temperature: temperature,
+                max_tokens: TOKEN_CONFIG.MAX_OUTPUT,
             });
         } catch (gptError: any) {
             // If GPT rate limited, fallback to Groq
             if (gptError?.status === 429 || gptError?.code === 'rate_limit_exceeded') {
-                console.log("GPT rate limited, falling back to Groq/Llama...");
+                logAI({
+                    level: "warn",
+                    event: "MODEL_FALLBACK",
+                    userId: userId || undefined,
+                    model: "llama",
+                    isFallback: true,
+                    metadata: {
+                        reason: "GPT rate limit",
+                        originalError: gptError?.message
+                    }
+                });
+
                 usedModel = "llama";
                 isFallback = true;
 
@@ -191,8 +256,17 @@ FORMAT MATEMATIKA (PENTING):
                     model: DEFAULT_GROQ_MODEL,
                     messages: conversationMessages,
                     stream: true,
+                    temperature: temperature,
+                    max_tokens: TOKEN_CONFIG.MAX_OUTPUT,
                 });
             } else {
+                logAI({
+                    level: "error",
+                    event: "MODEL_CALL_ERROR",
+                    userId: userId || undefined,
+                    model: "gpt",
+                    error: gptError?.message
+                });
                 throw gptError;
             }
         }
