@@ -2,22 +2,29 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { 
-  ArrowLeft, 
-  User2, 
-  Lock, 
-  Save, 
+import {
+  ArrowLeft,
+  User2,
+  Lock,
+  Save,
   Loader2,
   Mail,
   Shield,
-  CheckCircle
+  CheckCircle,
+  Trash2,
+  AlertTriangle
 } from "lucide-react";
 import { toast } from "sonner";
+import { useSession, signOut } from "next-auth/react";
 
 export default function ProfilePage() {
   const router = useRouter();
+  const { data: session } = useSession();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [profile, setProfile] = useState({
     email: "",
     name: "",
@@ -29,13 +36,25 @@ export default function ProfilePage() {
   });
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      router.push("/login");
-      return;
+    // Use session from NextAuth
+    if (session?.user) {
+      setProfile({
+        email: session.user.email || "",
+        name: session.user.name || "",
+      });
+      setLoading(false);
+    } else {
+      // Fallback to old token-based auth
+      const token = localStorage.getItem("token");
+      if (!token && !session) {
+        router.push("/login");
+        return;
+      }
+      if (token) {
+        loadProfile();
+      }
     }
-    loadProfile();
-  }, [router]);
+  }, [session, router]);
 
   const loadProfile = async () => {
     try {
@@ -132,6 +151,39 @@ export default function ProfilePage() {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmText !== "HAPUS AKUN") {
+      toast.error("Ketik 'HAPUS AKUN' untuk konfirmasi");
+      return;
+    }
+
+    setDeleting(true);
+
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("/api/profile", {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (res.ok) {
+        toast.success("Akun berhasil dihapus");
+        localStorage.removeItem("token");
+        await signOut({ callbackUrl: "/login" });
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Gagal menghapus akun");
+      }
+    } catch {
+      toast.error("Terjadi kesalahan");
+    } finally {
+      setDeleting(false);
+      setShowDeleteConfirm(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -165,9 +217,17 @@ export default function ProfilePage() {
         {/* Profile Info Card */}
         <section className="bg-card rounded-2xl p-6 border border-border shadow-sm animate-fade-in">
           <div className="flex items-center gap-4 mb-6">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center shadow-lg shadow-primary/20">
-              <User2 className="w-6 h-6 text-white" />
-            </div>
+            {session?.user?.image ? (
+              <img
+                src={session.user.image}
+                alt="Profile"
+                className="w-12 h-12 rounded-xl object-cover shadow-lg"
+              />
+            ) : (
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center shadow-lg shadow-primary/20">
+                <User2 className="w-6 h-6 text-white" />
+              </div>
+            )}
             <div>
               <h2 className="text-lg font-semibold">Profile Information</h2>
               <p className="text-sm text-muted-foreground">Update your personal details</p>
@@ -228,100 +288,187 @@ export default function ProfilePage() {
           </form>
         </section>
 
-        {/* Change Password Card */}
-        <section className="bg-card rounded-2xl p-6 border border-border shadow-sm animate-fade-in" style={{ animationDelay: "100ms" }}>
+        {/* Change Password Card - Only show for non-OAuth users */}
+        {!session?.user?.image && (
+          <section className="bg-card rounded-2xl p-6 border border-border shadow-sm animate-fade-in" style={{ animationDelay: "100ms" }}>
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
+                <Lock className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold">Change Password</h2>
+                <p className="text-sm text-muted-foreground">Update your security credentials</p>
+              </div>
+            </div>
+
+            <form onSubmit={handleChangePassword} className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Current Password</label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <input
+                    type="password"
+                    value={passwords.currentPassword}
+                    onChange={(e) => setPasswords({ ...passwords, currentPassword: e.target.value })}
+                    placeholder="Enter current password"
+                    className="w-full pl-11 pr-4 py-3 rounded-xl bg-muted border border-border 
+                             text-foreground text-sm placeholder:text-muted-foreground
+                             focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
+                             transition-all duration-200"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">New Password</label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <input
+                    type="password"
+                    value={passwords.newPassword}
+                    onChange={(e) => setPasswords({ ...passwords, newPassword: e.target.value })}
+                    placeholder="Enter new password"
+                    className="w-full pl-11 pr-4 py-3 rounded-xl bg-muted border border-border 
+                             text-foreground text-sm placeholder:text-muted-foreground
+                             focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
+                             transition-all duration-200"
+                  />
+                </div>
+                {passwords.newPassword.length > 0 && (
+                  <div className={`flex items-center gap-2 text-xs ${passwords.newPassword.length >= 6 ? 'text-green-500' : 'text-muted-foreground'}`}>
+                    <CheckCircle className={`w-3.5 h-3.5 ${passwords.newPassword.length >= 6 ? 'opacity-100' : 'opacity-30'}`} />
+                    <span>At least 6 characters</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Confirm New Password</label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <input
+                    type="password"
+                    value={passwords.confirmPassword}
+                    onChange={(e) => setPasswords({ ...passwords, confirmPassword: e.target.value })}
+                    placeholder="Confirm new password"
+                    className="w-full pl-11 pr-4 py-3 rounded-xl bg-muted border border-border 
+                             text-foreground text-sm placeholder:text-muted-foreground
+                             focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
+                             transition-all duration-200"
+                  />
+                </div>
+                {passwords.confirmPassword.length > 0 && (
+                  <div className={`flex items-center gap-2 text-xs ${passwords.newPassword === passwords.confirmPassword ? 'text-green-500' : 'text-destructive'}`}>
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    <span>{passwords.newPassword === passwords.confirmPassword ? 'Passwords match' : 'Passwords don\'t match'}</span>
+                  </div>
+                )}
+              </div>
+
+              <button
+                type="submit"
+                disabled={saving || !passwords.currentPassword || !passwords.newPassword}
+                className="w-full py-3 rounded-xl bg-violet-600 text-white font-medium text-sm
+                         hover:bg-violet-700 transition-all duration-200 disabled:opacity-50
+                         flex items-center justify-center gap-2 shadow-lg shadow-violet-600/20
+                         active:scale-[0.98]"
+              >
+                {saving ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Lock className="w-4 h-4" />
+                )}
+                Update Password
+              </button>
+            </form>
+          </section>
+        )}
+
+        {/* Danger Zone - Delete Account */}
+        <section className="bg-card rounded-2xl p-6 border border-red-500/20 shadow-sm animate-fade-in" style={{ animationDelay: "200ms" }}>
           <div className="flex items-center gap-4 mb-6">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
-              <Lock className="w-6 h-6 text-white" />
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center shadow-lg shadow-red-500/20">
+              <AlertTriangle className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold">Change Password</h2>
-              <p className="text-sm text-muted-foreground">Update your security credentials</p>
+              <h2 className="text-lg font-semibold text-red-500">Danger Zone</h2>
+              <p className="text-sm text-muted-foreground">Hapus akun secara permanen</p>
             </div>
           </div>
 
-          <form onSubmit={handleChangePassword} className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Current Password</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                <input
-                  type="password"
-                  value={passwords.currentPassword}
-                  onChange={(e) => setPasswords({ ...passwords, currentPassword: e.target.value })}
-                  placeholder="Enter current password"
-                  className="w-full pl-11 pr-4 py-3 rounded-xl bg-muted border border-border 
-                           text-foreground text-sm placeholder:text-muted-foreground
-                           focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
-                           transition-all duration-200"
-                />
-              </div>
-            </div>
+          <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 mb-4">
+            <p className="text-sm text-foreground">
+              ⚠️ <strong>Peringatan:</strong> Menghapus akun akan menghapus semua data Anda secara permanen, termasuk:
+            </p>
+            <ul className="text-sm text-muted-foreground mt-2 ml-4 list-disc space-y-1">
+              <li>Semua riwayat percakapan</li>
+              <li>Dokumen di Knowledge Base</li>
+              <li>Koneksi OAuth (Google)</li>
+              <li>Pengaturan profil</li>
+            </ul>
+          </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">New Password</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                <input
-                  type="password"
-                  value={passwords.newPassword}
-                  onChange={(e) => setPasswords({ ...passwords, newPassword: e.target.value })}
-                  placeholder="Enter new password"
-                  className="w-full pl-11 pr-4 py-3 rounded-xl bg-muted border border-border 
-                           text-foreground text-sm placeholder:text-muted-foreground
-                           focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
-                           transition-all duration-200"
-                />
-              </div>
-              {passwords.newPassword.length > 0 && (
-                <div className={`flex items-center gap-2 text-xs ${passwords.newPassword.length >= 6 ? 'text-green-500' : 'text-muted-foreground'}`}>
-                  <CheckCircle className={`w-3.5 h-3.5 ${passwords.newPassword.length >= 6 ? 'opacity-100' : 'opacity-30'}`} />
-                  <span>At least 6 characters</span>
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Confirm New Password</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                <input
-                  type="password"
-                  value={passwords.confirmPassword}
-                  onChange={(e) => setPasswords({ ...passwords, confirmPassword: e.target.value })}
-                  placeholder="Confirm new password"
-                  className="w-full pl-11 pr-4 py-3 rounded-xl bg-muted border border-border 
-                           text-foreground text-sm placeholder:text-muted-foreground
-                           focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
-                           transition-all duration-200"
-                />
-              </div>
-              {passwords.confirmPassword.length > 0 && (
-                <div className={`flex items-center gap-2 text-xs ${passwords.newPassword === passwords.confirmPassword ? 'text-green-500' : 'text-destructive'}`}>
-                  <CheckCircle className="w-3.5 h-3.5" />
-                  <span>{passwords.newPassword === passwords.confirmPassword ? 'Passwords match' : 'Passwords don\'t match'}</span>
-                </div>
-              )}
-            </div>
-
+          {!showDeleteConfirm ? (
             <button
-              type="submit"
-              disabled={saving || !passwords.currentPassword || !passwords.newPassword}
-              className="w-full py-3 rounded-xl bg-violet-600 text-white font-medium text-sm
-                       hover:bg-violet-700 transition-all duration-200 disabled:opacity-50
-                       flex items-center justify-center gap-2 shadow-lg shadow-violet-600/20
+              onClick={() => setShowDeleteConfirm(true)}
+              className="w-full py-3 rounded-xl bg-red-500/10 text-red-500 font-medium text-sm
+                       hover:bg-red-500/20 transition-all duration-200 border border-red-500/20
+                       flex items-center justify-center gap-2
                        active:scale-[0.98]"
             >
-              {saving ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Lock className="w-4 h-4" />
-              )}
-              Update Password
+              <Trash2 className="w-4 h-4" />
+              Hapus Akun Saya
             </button>
-          </form>
+          ) : (
+            <div className="space-y-4 animate-fade-in">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">
+                  Ketik <span className="text-red-500 font-bold">HAPUS AKUN</span> untuk konfirmasi:
+                </label>
+                <input
+                  type="text"
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder="HAPUS AKUN"
+                  className="w-full px-4 py-3 rounded-xl bg-muted border border-red-500/30 
+                           text-foreground text-sm placeholder:text-muted-foreground
+                           focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500
+                           transition-all duration-200"
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowDeleteConfirm(false);
+                    setDeleteConfirmText("");
+                  }}
+                  className="flex-1 py-3 rounded-xl bg-muted text-foreground font-medium text-sm
+                           hover:bg-accent transition-all duration-200
+                           active:scale-[0.98]"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={handleDeleteAccount}
+                  disabled={deleting || deleteConfirmText !== "HAPUS AKUN"}
+                  className="flex-1 py-3 rounded-xl bg-red-500 text-white font-medium text-sm
+                           hover:bg-red-600 transition-all duration-200 disabled:opacity-50
+                           flex items-center justify-center gap-2
+                           active:scale-[0.98]"
+                >
+                  {deleting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-4 h-4" />
+                  )}
+                  Hapus Permanen
+                </button>
+              </div>
+            </div>
+          )}
         </section>
       </main>
     </div>
   );
 }
+

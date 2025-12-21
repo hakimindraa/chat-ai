@@ -111,3 +111,51 @@ export async function PUT(req: Request) {
     return NextResponse.json({ error: "Gagal mengupdate profile" }, { status: 500 });
   }
 }
+
+// DELETE - Hapus akun user
+export async function DELETE(req: Request) {
+  try {
+    const authHeader = req.headers.get("authorization");
+    if (!authHeader) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const token = authHeader.split(" ")[1];
+    const decoded: any = jwt.verify(token, process.env.JWT_SECRET!);
+
+    const userId = decoded.userId;
+
+    // Hapus semua data terkait user
+    // 1. Hapus semua chat
+    await prisma.chat.deleteMany({
+      where: { userId },
+    });
+
+    // 2. Hapus semua knowledge base
+    await prisma.knowledge.deleteMany({
+      where: { userId },
+    });
+
+    // 3. Hapus semua OAuth accounts (untuk Google login)
+    await prisma.account.deleteMany({
+      where: { userId },
+    });
+
+    // 4. Hapus semua sessions
+    await prisma.session.deleteMany({
+      where: { userId },
+    });
+
+    // 5. Hapus user
+    await prisma.user.delete({
+      where: { id: userId },
+    });
+
+    return NextResponse.json({
+      message: "Akun berhasil dihapus",
+    });
+  } catch (error) {
+    console.error("Account deletion error:", error);
+    return NextResponse.json({ error: "Gagal menghapus akun" }, { status: 500 });
+  }
+}

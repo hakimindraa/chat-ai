@@ -25,6 +25,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import Link from "next/link";
+import { useSession, signOut } from "next-auth/react";
 
 type ChatItem = {
   id: string;
@@ -61,9 +62,8 @@ export default function Sidebar({
 }: SidebarProps) {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
+  const { data: session } = useSession();
   const [mounted, setMounted] = useState(false);
-  const [userName, setUserName] = useState<string>("");
-  const [userEmail, setUserEmail] = useState<string>("");
   const [hoveredChat, setHoveredChat] = useState<string | null>(null);
 
   // Knowledge Base state
@@ -74,27 +74,6 @@ export default function Sidebar({
 
   useEffect(() => {
     setMounted(true);
-
-    // Fetch user profile from API to get name
-    const fetchProfile = async () => {
-      const token = localStorage.getItem("token");
-      if (!token) return;
-
-      try {
-        const res = await fetch("/api/profile", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setUserName(data.user.name || "");
-          setUserEmail(data.user.email || "");
-        }
-      } catch (error) {
-        console.error("Failed to fetch profile:", error);
-      }
-    };
-
-    fetchProfile();
   }, []);
 
   // Fetch knowledge list
@@ -489,20 +468,28 @@ export default function Sidebar({
               {/* User Info */}
               <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-sidebar-accent/30">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/80 to-purple-500/80 flex items-center justify-center">
-                    <User2 className="w-4 h-4 text-white" />
-                  </div>
+                  {session?.user?.image ? (
+                    <img
+                      src={session.user.image}
+                      alt="Profile"
+                      className="w-8 h-8 rounded-lg object-cover"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/80 to-purple-500/80 flex items-center justify-center">
+                      <User2 className="w-4 h-4 text-white" />
+                    </div>
+                  )}
                   <div className="flex flex-col">
                     <span className="text-xs font-medium text-sidebar-foreground truncate max-w-[120px]">
-                      {userName || userEmail.split("@")[0] || "User"}
+                      {session?.user?.name || session?.user?.email?.split("@")[0] || "User"}
                     </span>
                     <span className="text-[10px] text-sidebar-foreground/40 truncate max-w-[120px]">
-                      {userEmail}
+                      {session?.user?.email}
                     </span>
                   </div>
                 </div>
                 <button
-                  onClick={handleLogout}
+                  onClick={() => signOut({ callbackUrl: "/login" })}
                   className="p-2 rounded-lg hover:bg-sidebar-accent text-sidebar-foreground/50 hover:text-red-400 transition-all duration-200"
                   title="Logout"
                 >
