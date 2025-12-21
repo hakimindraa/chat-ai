@@ -107,6 +107,14 @@ export async function POST(req: Request) {
                 textContent = `[PowerPoint file: ${file.name}] - Untuk hasil terbaik, ekspor presentasi ke PDF terlebih dahulu.`;
                 fileType = "pptx";
             }
+            // CSV files
+            else if (
+                file.type === "text/csv" ||
+                fileName.endsWith(".csv")
+            ) {
+                textContent = await file.text();
+                fileType = "csv";
+            }
             // Plain text
             else if (file.type.startsWith("text/") || fileName.endsWith(".txt") || fileName.endsWith(".md")) {
                 textContent = await file.text();

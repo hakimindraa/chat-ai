@@ -262,7 +262,7 @@ export default function Sidebar({
                                     transition-all duration-200 border border-dashed border-primary/30">
                     <input
                       type="file"
-                      accept=".pdf,.txt,.md"
+                      accept=".pdf,.txt,.md,.csv,.docx,.xlsx"
                       onChange={handleUploadKnowledge}
                       className="hidden"
                       disabled={uploadingFile}
