@@ -112,8 +112,13 @@ export async function POST(req: Request) {
                 });
 
                 if (knowledge.length > 0) {
+                    // Query Expansion for better RAG retrieval
+                    const { expandQuery } = await import("@/lib/ai/query");
+                    const { expanded, wasExpanded } = await expandQuery(message);
+                    const searchQuery = wasExpanded ? expanded : message;
+
                     const results = await findSimilarDocuments(
-                        message,
+                        searchQuery, // Use expanded query for search
                         knowledge.map(k => ({
                             id: k.id,
                             content: k.content,
