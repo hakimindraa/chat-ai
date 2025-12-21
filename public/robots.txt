@@ -1,0 +1,14 @@
+# AI Study Assistant - Robots.txt
+# https://asistenchat.vercel.app
+
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /dashboard
+Disallow: /profile
+
+# Sitemaps
+Sitemap: https://asistenchat.vercel.app/sitemap.xml
+
+# Crawl delay (optional)
+Crawl-delay: 1
