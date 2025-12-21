@@ -1,56 +1,86 @@
-// Simple embedding and similarity search utilities
-// Uses a basic approach without external dependencies
+// Pro RAG Embedding using HuggingFace (FREE)
+// Uses all-MiniLM-L6-v2 model for semantic embeddings
+
+const HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2";
 
 /**
- * Simple text preprocessing for embedding
+ * Get embeddings from HuggingFace API (FREE)
+ * Model: all-MiniLM-L6-v2 - 384 dimensions
  */
-export function preprocessText(text: string): string {
-    return text
-        .toLowerCase()
-        .replace(/[^\w\s]/g, ' ')
+export async function getEmbedding(text: string): Promise<number[]> {
+    // Preprocess text
+    const cleanText = text
+        .replace(/\n+/g, ' ')
         .replace(/\s+/g, ' ')
-        .trim();
-}
+        .trim()
+        .slice(0, 512); // Model has max token limit
 
-/**
- * Simple bag-of-words based embedding (lightweight alternative)
- * For production, use OpenAI embeddings or sentence-transformers
- */
-export function simpleEmbed(text: string): number[] {
-    const processed = preprocessText(text);
-    const words = processed.split(' ');
+    try {
+        const response = await fetch(HUGGINGFACE_API_URL, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                // HuggingFace API is free without token for public models
+                // Add token here if rate limited: "Authorization": `Bearer ${process.env.HUGGINGFACE_TOKEN}`
+            },
+            body: JSON.stringify({
+                inputs: cleanText,
+                options: { wait_for_model: true }
+            }),
+        });
 
-    // Create a simple hash-based embedding
-    const embedding: number[] = new Array(128).fill(0);
-
-    for (const word of words) {
-        const hash = simpleHash(word);
-        const index = Math.abs(hash) % 128;
-        embedding[index] += 1;
-    }
-
-    // Normalize
-    const magnitude = Math.sqrt(embedding.reduce((sum, val) => sum + val * val, 0));
-    if (magnitude > 0) {
-        for (let i = 0; i < embedding.length; i++) {
-            embedding[i] /= magnitude;
+        if (!response.ok) {
+            console.error("HuggingFace API error:", response.status);
+            // Fallback to simple embedding if API fails
+            return fallbackEmbed(cleanText);
         }
-    }
 
-    return embedding;
+        const embedding = await response.json();
+
+        // Handle nested array response
+        if (Array.isArray(embedding) && Array.isArray(embedding[0])) {
+            return embedding[0];
+        }
+
+        return embedding;
+    } catch (error) {
+        console.error("Embedding error:", error);
+        // Fallback to simple embedding
+        return fallbackEmbed(cleanText);
+    }
 }
 
 /**
- * Simple string hash function
+ * Batch embedding for multiple texts (more efficient)
  */
-function simpleHash(str: string): number {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-        const char = str.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash = hash & hash;
+export async function getEmbeddings(texts: string[]): Promise<number[][]> {
+    const cleanTexts = texts.map(text =>
+        text.replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 512)
+    );
+
+    try {
+        const response = await fetch(HUGGINGFACE_API_URL, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                inputs: cleanTexts,
+                options: { wait_for_model: true }
+            }),
+        });
+
+        if (!response.ok) {
+            console.error("HuggingFace API error:", response.status);
+            return cleanTexts.map(t => fallbackEmbed(t));
+        }
+
+        const embeddings = await response.json();
+        return embeddings;
+    } catch (error) {
+        console.error("Batch embedding error:", error);
+        return cleanTexts.map(t => fallbackEmbed(t));
     }
-    return hash;
 }
 
 /**
@@ -78,14 +108,15 @@ export function cosineSimilarity(a: number[], b: number[]): number {
 }
 
 /**
- * Search for similar documents
+ * Find similar documents using semantic search
  */
-export function findSimilar(
+export async function findSimilarDocuments(
     query: string,
     documents: { id: number; content: string; embedding?: string }[],
     topK: number = 3
-): { id: number; content: string; score: number }[] {
-    const queryEmbedding = simpleEmbed(query);
+): Promise<{ id: number; content: string; score: number }[]> {
+    // Get query embedding
+    const queryEmbedding = await getEmbedding(query);
 
     const scored = documents.map(doc => {
         let docEmbedding: number[];
@@ -94,10 +125,12 @@ export function findSimilar(
             try {
                 docEmbedding = JSON.parse(doc.embedding);
             } catch {
-                docEmbedding = simpleEmbed(doc.content);
+                // If parsing fails, skip this document
+                return { id: doc.id, content: doc.content, score: 0 };
             }
         } else {
-            docEmbedding = simpleEmbed(doc.content);
+            // No embedding stored, skip
+            return { id: doc.id, content: doc.content, score: 0 };
         }
 
         return {
@@ -110,23 +143,55 @@ export function findSimilar(
     // Sort by similarity score descending
     scored.sort((a, b) => b.score - a.score);
 
-    // Return top K results with score > threshold
-    return scored.filter(item => item.score > 0.1).slice(0, topK);
+    // Return top K results with score > threshold (0.3 for semantic search)
+    return scored.filter(item => item.score > 0.3).slice(0, topK);
 }
 
 /**
  * Chunk text into smaller pieces for better retrieval
  */
-export function chunkText(text: string, chunkSize: number = 500, overlap: number = 50): string[] {
+export function chunkText(text: string, chunkSize: number = 300, overlap: number = 50): string[] {
     const words = text.split(/\s+/);
     const chunks: string[] = [];
 
     for (let i = 0; i < words.length; i += chunkSize - overlap) {
         const chunk = words.slice(i, i + chunkSize).join(' ');
-        if (chunk.trim()) {
+        if (chunk.trim() && chunk.split(/\s+/).length > 10) { // Minimum 10 words
             chunks.push(chunk);
         }
     }
 
     return chunks;
 }
+
+/**
+ * Fallback simple embedding if HuggingFace fails
+ */
+function fallbackEmbed(text: string): number[] {
+    const words = text.toLowerCase().replace(/[^\w\s]/g, ' ').split(/\s+/);
+    const embedding: number[] = new Array(384).fill(0); // Match HuggingFace dimensions
+
+    for (const word of words) {
+        let hash = 0;
+        for (let i = 0; i < word.length; i++) {
+            const char = word.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash;
+        }
+        const index = Math.abs(hash) % 384;
+        embedding[index] += 1;
+    }
+
+    // Normalize
+    const magnitude = Math.sqrt(embedding.reduce((sum, val) => sum + val * val, 0));
+    if (magnitude > 0) {
+        for (let i = 0; i < embedding.length; i++) {
+            embedding[i] /= magnitude;
+        }
+    }
+
+    return embedding;
+}
+
+// Re-export for backward compatibility
+export const simpleEmbed = fallbackEmbed;

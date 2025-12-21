@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { findSimilar } from "@/lib/embedding";
+import { findSimilarDocuments } from "@/lib/embedding";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const jwt = require("jsonwebtoken");
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
             });
         }
 
-        // 3️⃣ SEARCH IN KNOWLEDGE BASE
+        // 3️⃣ SEMANTIC SEARCH IN KNOWLEDGE BASE (PRO RAG)
         let results: { id: number; content: string; score: number }[] = [];
 
         if (userId) {
@@ -46,7 +46,8 @@ export async function POST(req: Request) {
             });
 
             if (knowledge.length > 0) {
-                results = findSimilar(
+                // Use AI-powered semantic search
+                results = await findSimilarDocuments(
                     query,
                     knowledge.map(k => ({
                         id: k.id,
@@ -62,7 +63,7 @@ export async function POST(req: Request) {
         let context = "";
         if (results.length > 0) {
             context = results
-                .map((r, i) => `[Dokumen ${i + 1}]\n${r.content}`)
+                .map((r, i) => `[Dokumen ${i + 1} - Relevansi: ${Math.round(r.score * 100)}%]\n${r.content}`)
                 .join("\n\n---\n\n");
         }
 
@@ -70,6 +71,7 @@ export async function POST(req: Request) {
             results,
             context,
             hasResults: results.length > 0,
+            proRag: true,
         }), {
             status: 200,
             headers: { "Content-Type": "application/json" },
@@ -83,3 +85,4 @@ export async function POST(req: Request) {
         });
     }
 }
+
