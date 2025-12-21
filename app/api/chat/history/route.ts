@@ -1,26 +1,48 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/auth";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const jwt = require("jsonwebtoken");
 
 export async function GET(req: Request) {
   try {
+    let userId: number | null = null;
+
+    // Try JWT token first (for email/password users)
     const authHeader = req.headers.get("authorization");
-    if (!authHeader) {
+    if (authHeader) {
+      const token = authHeader.split(" ")[1];
+      if (token && token !== "null" && token !== "undefined") {
+        try {
+          const decoded: any = jwt.verify(token, process.env.JWT_SECRET!);
+          userId = decoded.userId;
+        } catch {
+          // Token invalid, will try NextAuth
+        }
+      }
+    }
+
+    // Try NextAuth session (for Google OAuth users)
+    if (!userId) {
+      const session = await auth();
+      if (session?.user?.id) {
+        userId = parseInt(session.user.id, 10);
+      }
+    }
+
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const token = authHeader.split(" ")[1];
-    const decoded: any = jwt.verify(token, process.env.JWT_SECRET!);
-
     const chats = await prisma.chat.findMany({
-      where: { userId: decoded.userId },
+      where: { userId },
       orderBy: { createdAt: "asc" }
     });
 
     return NextResponse.json({ chats });
   } catch (error) {
+    console.error("Get chat history error:", error);
     return NextResponse.json({ error: "Token invalid" }, { status: 401 });
   }
 }
@@ -28,13 +50,33 @@ export async function GET(req: Request) {
 // DELETE - Hapus chat by ID atau hapus semua chat
 export async function DELETE(req: Request) {
   try {
+    let userId: number | null = null;
+
+    // Try JWT token first (for email/password users)
     const authHeader = req.headers.get("authorization");
-    if (!authHeader) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (authHeader) {
+      const token = authHeader.split(" ")[1];
+      if (token && token !== "null" && token !== "undefined") {
+        try {
+          const decoded: any = jwt.verify(token, process.env.JWT_SECRET!);
+          userId = decoded.userId;
+        } catch {
+          // Token invalid, will try NextAuth
+        }
+      }
     }
 
-    const token = authHeader.split(" ")[1];
-    const decoded: any = jwt.verify(token, process.env.JWT_SECRET!);
+    // Try NextAuth session (for Google OAuth users)
+    if (!userId) {
+      const session = await auth();
+      if (session?.user?.id) {
+        userId = parseInt(session.user.id, 10);
+      }
+    }
+
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     const { searchParams } = new URL(req.url);
     const chatId = searchParams.get("id");
@@ -43,7 +85,7 @@ export async function DELETE(req: Request) {
     if (deleteAll) {
       // Hapus semua chat user
       await prisma.chat.deleteMany({
-        where: { userId: decoded.userId }
+        where: { userId }
       });
       return NextResponse.json({ message: "Semua chat berhasil dihapus" });
     }
@@ -59,7 +101,7 @@ export async function DELETE(req: Request) {
 
     // Hapus chat spesifik (pastikan milik user ini)
     const chat = await prisma.chat.findFirst({
-      where: { id: chatIdInt, userId: decoded.userId }
+      where: { id: chatIdInt, userId }
     });
 
     if (!chat) {
@@ -76,3 +118,4 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ error: "Gagal menghapus chat" }, { status: 500 });
   }
 }
+

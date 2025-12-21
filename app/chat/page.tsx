@@ -79,13 +79,13 @@ export default function ChatPage() {
   const loadChatHistory = async () => {
     try {
       const token = localStorage.getItem("token");
-      if (!token) return;
 
+      // Support both JWT token and NextAuth session
       const res = await fetch("/api/chat/history", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: "include", // Include cookies for NextAuth session
       });
+
       if (res.ok) {
         const data = await res.json();
         const chats = data.chats || [];
@@ -140,9 +140,8 @@ export default function ChatPage() {
       const token = localStorage.getItem("token");
       const res = await fetch(`/api/chat/history?id=${id}`, {
         method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: "include", // Include cookies for NextAuth session
       });
 
       if (res.ok) {
@@ -164,9 +163,8 @@ export default function ChatPage() {
       const token = localStorage.getItem("token");
       const res = await fetch("/api/chat/history?all=true", {
         method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: "include", // Include cookies for NextAuth session
       });
 
       if (res.ok) {
