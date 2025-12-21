@@ -587,7 +587,7 @@ export default function ChatArea({
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={stagedImage ? "What should I analyze in this image?" : stagedPdf ? "What should I do with this PDF?" : "Ask me anything..."}
+              placeholder={stagedImage ? "What should I analyze in this image?" : stagedPdf ? "What should I do with this PDF?" : "Ask me"}
               rows={1}
               className="flex-1 bg-transparent resize-none outline-none text-foreground 
                          placeholder:text-muted-foreground text-sm py-2 min-h-[40px]"
