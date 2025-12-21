@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getEmbedding, chunkText } from "@/lib/embedding";
+import { auth } from "@/auth";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const jwt = require("jsonwebtoken");
@@ -15,10 +16,11 @@ const XLSX = require("xlsx");
 
 export async function POST(req: Request) {
     try {
-        // 1️⃣ CHECK AUTH
-        const authHeader = req.headers.get("authorization");
+        // 1️⃣ CHECK AUTH - Support both JWT token and NextAuth session
         let userId: number | null = null;
 
+        // Try JWT token first (for email/password users)
+        const authHeader = req.headers.get("authorization");
         if (authHeader) {
             const token = authHeader.split(" ")[1];
             if (token && token !== "null" && token !== "undefined") {
@@ -26,11 +28,16 @@ export async function POST(req: Request) {
                     const decoded: any = jwt.verify(token, process.env.JWT_SECRET!);
                     userId = decoded.userId;
                 } catch {
-                    return new Response(JSON.stringify({ error: "Token tidak valid" }), {
-                        status: 401,
-                        headers: { "Content-Type": "application/json" },
-                    });
+                    // Token invalid, will try NextAuth session next
                 }
+            }
+        }
+
+        // Try NextAuth session (for Google OAuth users)
+        if (!userId) {
+            const session = await auth();
+            if (session?.user?.id) {
+                userId = parseInt(session.user.id, 10);
             }
         }
 
@@ -167,9 +174,10 @@ export async function POST(req: Request) {
 // GET - List knowledge items
 export async function GET(req: Request) {
     try {
-        const authHeader = req.headers.get("authorization");
         let userId: number | null = null;
 
+        // Try JWT token first
+        const authHeader = req.headers.get("authorization");
         if (authHeader) {
             const token = authHeader.split(" ")[1];
             if (token && token !== "null" && token !== "undefined") {
@@ -177,11 +185,16 @@ export async function GET(req: Request) {
                     const decoded: any = jwt.verify(token, process.env.JWT_SECRET!);
                     userId = decoded.userId;
                 } catch {
-                    return new Response(JSON.stringify({ error: "Token tidak valid" }), {
-                        status: 401,
-                        headers: { "Content-Type": "application/json" },
-                    });
+                    // Token invalid, will try NextAuth session
                 }
+            }
+        }
+
+        // Try NextAuth session (for Google OAuth users)
+        if (!userId) {
+            const session = await auth();
+            if (session?.user?.id) {
+                userId = parseInt(session.user.id, 10);
             }
         }
 
@@ -220,7 +233,6 @@ export async function GET(req: Request) {
 // DELETE - Remove knowledge item
 export async function DELETE(req: Request) {
     try {
-        const authHeader = req.headers.get("authorization");
         const url = new URL(req.url);
         const id = url.searchParams.get("id");
 
@@ -233,6 +245,8 @@ export async function DELETE(req: Request) {
 
         let userId: number | null = null;
 
+        // Try JWT token first
+        const authHeader = req.headers.get("authorization");
         if (authHeader) {
             const token = authHeader.split(" ")[1];
             if (token && token !== "null" && token !== "undefined") {
@@ -240,11 +254,16 @@ export async function DELETE(req: Request) {
                     const decoded: any = jwt.verify(token, process.env.JWT_SECRET!);
                     userId = decoded.userId;
                 } catch {
-                    return new Response(JSON.stringify({ error: "Token tidak valid" }), {
-                        status: 401,
-                        headers: { "Content-Type": "application/json" },
-                    });
+                    // Token invalid, will try NextAuth session
                 }
+            }
+        }
+
+        // Try NextAuth session (for Google OAuth users)
+        if (!userId) {
+            const session = await auth();
+            if (session?.user?.id) {
+                userId = parseInt(session.user.id, 10);
             }
         }
 
