@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { groq, DEFAULT_GROQ_MODEL } from "@/lib/groq";
 import { prisma } from "@/lib/prisma";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -61,17 +62,13 @@ export async function POST(req: Request) {
         }
 
         // 4️⃣ BUILD CONVERSATION MESSAGES
-        let conversationMessages: { role: "system" | "user" | "assistant"; content: string }[] = [];
-
         const today = new Date().toLocaleDateString("id-ID", {
             day: "numeric",
             month: "long",
             year: "numeric",
         });
 
-        conversationMessages.push({
-            role: "system",
-            content: `Kamu adalah asisten belajar mahasiswa bernama AI Study Assistant. Jawab dengan bahasa sederhana dan jelas. ${!isGuest ? "Kamu bisa mengingat percakapan sebelumnya dengan user." : ""}
+        const buildSystemPrompt = (model: "gpt" | "llama") => `Kamu adalah asisten belajar mahasiswa bernama AI Study Assistant${model === "llama" ? " yang menggunakan Llama AI" : ""}. Jawab dengan bahasa sederhana dan jelas. ${!isGuest ? "Kamu bisa mengingat percakapan sebelumnya dengan user." : ""}
 
 INFORMASI PENTING (UPDATE TERBARU):
 - Tanggal hari ini: ${today}
@@ -91,47 +88,89 @@ FORMAT MATEMATIKA (PENTING):
 - Untuk rumus matematika, SELALU gunakan format LaTeX
 - Rumus inline: gunakan $...$, contoh: $x^2 + y^2 = z^2$
 - Rumus block: gunakan $$...$$, contoh: $$\\frac{a}{b}$$
-- Contoh: pangkat $x^2$, pecahan $\\frac{1}{2}$, akar $\\sqrt{x}$, integral $\\int_0^1 x\\,dx$`,
-        });
+- Contoh: pangkat $x^2$, pecahan $\\frac{1}{2}$, akar $\\sqrt{x}$, integral $\\int_0^1 x\\,dx$`;
 
-        // Get history only for logged in users
-        if (!isGuest && userId) {
-            const chatHistory = await prisma.chat.findMany({
-                where: { userId },
-                orderBy: { createdAt: "desc" },
-                take: 10,
+        const buildConversationMessages = async (model: "gpt" | "llama") => {
+            const conversationMessages: { role: "system" | "user" | "assistant"; content: string }[] = [];
+
+            conversationMessages.push({
+                role: "system",
+                content: buildSystemPrompt(model),
             });
 
-            const reversedHistory = chatHistory.reverse();
+            // Get history only for logged in users
+            if (!isGuest && userId) {
+                const chatHistory = await prisma.chat.findMany({
+                    where: { userId },
+                    orderBy: { createdAt: "desc" },
+                    take: 10,
+                });
 
-            for (const chat of reversedHistory) {
-                if (!chat.message.startsWith("PDF_UPLOAD:")) {
-                    conversationMessages.push({ role: "user", content: chat.message });
-                    conversationMessages.push({ role: "assistant", content: chat.reply });
+                const reversedHistory = chatHistory.reverse();
+
+                for (const chat of reversedHistory) {
+                    if (!chat.message.startsWith("PDF_UPLOAD:") && !chat.message.startsWith("[IMAGE]")) {
+                        conversationMessages.push({ role: "user", content: chat.message.replace("[LLAMA] ", "") });
+                        conversationMessages.push({ role: "assistant", content: chat.reply });
+                    }
                 }
             }
+
+            conversationMessages.push({ role: "user", content: message });
+            return conversationMessages;
+        };
+
+        // 5️⃣ TRY GPT FIRST, FALLBACK TO GROQ
+        let stream: any;
+        let usedModel: "gpt" | "llama" = "gpt";
+        let isFallback = false;
+
+        try {
+            const conversationMessages = await buildConversationMessages("gpt");
+            stream = await openai.chat.completions.create({
+                model: "gpt-4o-mini",
+                messages: conversationMessages,
+                stream: true,
+            });
+        } catch (gptError: any) {
+            // If GPT rate limited, fallback to Groq
+            if (gptError?.status === 429 || gptError?.code === 'rate_limit_exceeded') {
+                console.log("GPT rate limited, falling back to Groq/Llama...");
+                usedModel = "llama";
+                isFallback = true;
+
+                const conversationMessages = await buildConversationMessages("llama");
+                stream = await groq.chat.completions.create({
+                    model: DEFAULT_GROQ_MODEL,
+                    messages: conversationMessages,
+                    stream: true,
+                });
+            } else {
+                throw gptError;
+            }
         }
-
-        conversationMessages.push({ role: "user", content: message });
-
-        // 5️⃣ CREATE STREAMING RESPONSE
-        const stream = await openai.chat.completions.create({
-            model: "gpt-4o-mini",
-            messages: conversationMessages,
-            stream: true,
-        });
 
         // 6️⃣ CREATE READABLE STREAM
         let fullResponse = "";
         const userIdForSave = userId;
         const isGuestForSave = isGuest;
         const messageForSave = message;
+        const modelForSave = usedModel;
 
         const readableStream = new ReadableStream({
             async start(controller) {
                 const encoder = new TextEncoder();
 
                 try {
+                    // Send model info if fallback occurred
+                    if (isFallback) {
+                        controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+                            info: "⚡ GPT rate limit - otomatis beralih ke Llama AI",
+                            modelSwitch: true,
+                            model: "llama"
+                        })}\n\n`));
+                    }
+
                     for await (const chunk of stream) {
                         const content = chunk.choices[0]?.delta?.content || "";
                         if (content) {
@@ -140,15 +179,15 @@ FORMAT MATEMATIKA (PENTING):
                         }
                     }
 
-                    // Send done signal
-                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true })}\n\n`));
+                    // Send done signal with model info
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, model: modelForSave })}\n\n`));
                     controller.close();
 
                     // 7️⃣ SAVE TO DATABASE (after streaming completes)
                     if (!isGuestForSave && userIdForSave) {
                         await prisma.chat.create({
                             data: {
-                                message: messageForSave,
+                                message: modelForSave === "llama" ? `[LLAMA] ${messageForSave}` : messageForSave,
                                 reply: fullResponse.trim(),
                                 userId: userIdForSave,
                             },
@@ -169,12 +208,13 @@ FORMAT MATEMATIKA (PENTING):
                 "Content-Type": "text/event-stream",
                 "Cache-Control": "no-cache",
                 Connection: "keep-alive",
+                "X-Model-Used": usedModel,
             },
         });
     } catch (error: any) {
         console.error("Chat Stream API Error:", error);
 
-        // Handle rate limit error
+        // Handle rate limit error (both GPT and Groq failed)
         if (error?.status === 429 || error?.code === 'rate_limit_exceeded') {
             const retryAfter = error?.headers?.get?.('retry-after') || '60';
             const minutes = Math.ceil(parseInt(retryAfter) / 60);
@@ -200,7 +240,7 @@ FORMAT MATEMATIKA (PENTING):
 
         if (error?.status === 503) {
             return new Response(JSON.stringify({
-                error: "Server OpenAI sedang sibuk. Coba lagi dalam beberapa saat."
+                error: "Server AI sedang sibuk. Coba lagi dalam beberapa saat."
             }), {
                 status: 503,
                 headers: { "Content-Type": "application/json" },
@@ -213,3 +253,4 @@ FORMAT MATEMATIKA (PENTING):
         });
     }
 }
+
