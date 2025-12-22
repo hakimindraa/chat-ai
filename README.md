@@ -32,6 +32,9 @@
 🗄 **Database (Neon Console)**  
 👉 https://console.neon.tech/app/projects/wandering-shape-13544493?branchId=br-steep-mountain-adyonh04
 
+google console search
+https://search.google.com/search-console/sitemaps?resource_id=https%3A%2F%2Fasistenchat.vercel.app%2F
+
 ---
 
 ## 🧬 Technology Stack
