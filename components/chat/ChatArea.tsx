@@ -168,11 +168,44 @@ export default function ChatArea({
     }
   }, [input]);
 
-  const quickActions = [
-    { icon: BookOpen, label: "Explain concept", prompt: "Explain the concept of", color: "from-blue-500 to-cyan-500" },
-    { icon: FileQuestion, label: "Summarize", prompt: "Summarize this topic:", color: "from-purple-500 to-pink-500" },
-    { icon: PenTool, label: "Practice quiz", prompt: "Create a practice quiz about", color: "from-orange-500 to-red-500" },
-    { icon: Zap, label: "Quick tips", prompt: "Give me quick tips for", color: "from-green-500 to-emerald-500" },
+  // Get greeting based on time of day
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 12) return "Selamat pagi";
+    if (hour >= 12 && hour < 15) return "Selamat siang";
+    if (hour >= 15 && hour < 18) return "Selamat sore";
+    return "Selamat malam";
+  };
+
+  const suggestedPrompts = [
+    {
+      icon: BookOpen,
+      label: "Jelaskan Konsep",
+      description: "Minta penjelasan materi",
+      prompt: "Jelaskan secara detail tentang ",
+      color: "from-blue-500 to-cyan-500"
+    },
+    {
+      icon: FileQuestion,
+      label: "Buat Rangkuman",
+      description: "Ringkas materi panjang",
+      prompt: "Buatkan rangkuman singkat tentang ",
+      color: "from-purple-500 to-pink-500"
+    },
+    {
+      icon: PenTool,
+      label: "Latihan Soal",
+      description: "Uji pemahamanmu",
+      prompt: "Buatkan 5 soal latihan tentang ",
+      color: "from-orange-500 to-red-500"
+    },
+    {
+      icon: Zap,
+      label: "Tips Belajar",
+      description: "Strategi belajar efektif",
+      prompt: "Berikan tips belajar efektif untuk ",
+      color: "from-green-500 to-emerald-500"
+    },
   ];
 
   return (
@@ -182,15 +215,19 @@ export default function ChatArea({
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center px-4 pt-16 lg:pt-0 animate-fade-in">
             {/* Hero Section */}
-            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center mb-6 shadow-lg shadow-primary/30">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center mb-6 shadow-lg shadow-primary/30 animate-pulse">
               <Sparkles className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
             </div>
 
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2 text-center">
-              <span className="gradient-text">Study AI</span>
+            {/* Personalized Greeting */}
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2 text-center">
+              {getGreeting()}! 👋
             </h1>
-            <p className="text-muted-foreground text-center max-w-md text-sm sm:text-base px-4 mb-4">
-              Your intelligent study companion. Ask questions, summarize documents, or get help with any topic.
+            <p className="text-gray-600 dark:text-gray-300 text-center max-w-md text-sm sm:text-base px-4 mb-2">
+              Saya <span className="font-semibold text-primary">Study AI</span>, asisten belajar cerdas Anda.
+            </p>
+            <p className="text-gray-500 dark:text-gray-400 text-center max-w-md text-xs sm:text-sm px-4 mb-6">
+              Mau belajar apa hari ini?
             </p>
 
             {/* Guest Mode Info */}
@@ -202,22 +239,23 @@ export default function ChatArea({
               </div>
             )}
 
-            {/* Quick Actions Grid */}
+            {/* Suggested Prompts Grid */}
             <div className="grid grid-cols-2 gap-3 max-w-md w-full px-4">
-              {quickActions.map((action, index) => (
+              {suggestedPrompts.map((item, index) => (
                 <button
                   key={index}
-                  onClick={() => setInput(action.prompt + " ")}
-                  className="group p-4 rounded-2xl bg-card/50 backdrop-blur-md border border-white/10 
-                             hover:bg-card/80 hover:border-primary/30 hover:shadow-xl hover:shadow-primary/10 
+                  onClick={() => setInput(item.prompt)}
+                  className="group p-4 rounded-2xl bg-white dark:bg-card/50 border border-gray-200 dark:border-white/10 
+                             hover:bg-gray-50 dark:hover:bg-card/80 hover:border-primary/30 hover:shadow-xl hover:shadow-primary/10 
                              transition-all duration-300 text-left active:scale-[0.98]"
                 >
-                  <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${action.color} 
+                  <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${item.color} 
                                   flex items-center justify-center mb-3 
                                   group-hover:scale-110 group-hover:shadow-lg transition-all duration-300`}>
-                    <action.icon className="w-5 h-5 text-white" />
+                    <item.icon className="w-5 h-5 text-white" />
                   </div>
-                  <p className="font-medium text-foreground text-sm">{action.label}</p>
+                  <p className="font-medium text-gray-900 dark:text-white text-sm">{item.label}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{item.description}</p>
                 </button>
               ))}
             </div>
@@ -227,11 +265,11 @@ export default function ChatArea({
               <button
                 onClick={() => fileInputRef.current?.click()}
                 className="mt-6 flex items-center gap-2 px-4 py-2 rounded-full 
-                           bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground
+                           bg-gray-100 dark:bg-muted/50 hover:bg-gray-200 dark:hover:bg-muted text-gray-600 dark:text-muted-foreground hover:text-gray-900 dark:hover:text-foreground
                            text-sm transition-all duration-200"
               >
                 <Paperclip className="w-4 h-4" />
-                <span>Upload PDF to analyze</span>
+                <span>Upload PDF untuk dianalisis</span>
               </button>
             )}
             {isGuest && (
