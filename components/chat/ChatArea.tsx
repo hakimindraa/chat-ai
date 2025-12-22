@@ -302,17 +302,16 @@ export default function ChatArea({
                       </div>
 
                       {/* Message Content - Clean text style */}
-                      <div className="prose prose-sm prose-gray dark:prose-invert max-w-none
-                                      text-gray-800 dark:text-gray-100
-                                      prose-p:text-[15px] prose-p:leading-7 prose-p:!text-gray-800 dark:prose-p:!text-gray-100 prose-p:my-3
-                                      prose-headings:font-semibold prose-headings:!text-gray-900 dark:prose-headings:!text-white prose-headings:mt-6 prose-headings:mb-3
-                                      prose-h2:text-lg prose-h3:text-base
-                                      prose-li:text-[15px] prose-li:leading-7 prose-li:!text-gray-800 dark:prose-li:!text-gray-100 prose-li:my-1
-                                      prose-ul:my-3 prose-ol:my-3
-                                      prose-strong:!text-gray-900 dark:prose-strong:!text-white prose-strong:font-semibold
-                                      prose-a:text-primary prose-a:no-underline hover:prose-a:underline
-                                      prose-code:text-sm prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded
-                                      prose-pre:bg-muted prose-pre:border prose-pre:border-border prose-pre:rounded-lg">
+                      <div className="max-w-none text-[15px] leading-7 text-gray-900 dark:text-gray-100
+                                      [&_p]:my-3 [&_p]:text-gray-900 dark:[&_p]:text-gray-100
+                                      [&_h1]:text-xl [&_h1]:font-bold [&_h1]:text-gray-900 dark:[&_h1]:text-white [&_h1]:mt-6 [&_h1]:mb-3
+                                      [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-gray-900 dark:[&_h2]:text-white [&_h2]:mt-5 [&_h2]:mb-2
+                                      [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-gray-900 dark:[&_h3]:text-white [&_h3]:mt-4 [&_h3]:mb-2
+                                      [&_ul]:my-3 [&_ol]:my-3 [&_li]:my-1 [&_li]:text-gray-900 dark:[&_li]:text-gray-100
+                                      [&_strong]:font-semibold [&_strong]:text-gray-900 dark:[&_strong]:text-white
+                                      [&_a]:text-primary [&_a]:no-underline hover:[&_a]:underline
+                                      [&_code]:text-sm [&_code]:bg-gray-100 dark:[&_code]:bg-gray-800 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-gray-800 dark:[&_code]:text-gray-200
+                                      [&_pre]:bg-gray-100 dark:[&_pre]:bg-gray-800 [&_pre]:p-4 [&_pre]:rounded-lg [&_pre]:overflow-x-auto [&_pre]:my-4">
                         <MarkdownRenderer content={message.content} />
                       </div>
 
