@@ -17,6 +17,7 @@ type Message = {
   fileName?: string;
   imageUrl?: string;
   modelUsed?: "gpt" | "llama";
+  ragUsed?: boolean; // Whether response used knowledge base
 };
 
 type ChatItem = {
@@ -34,6 +35,10 @@ type ConversationGroup = {
 };
 
 const GUEST_CHAT_LIMIT = 7;
+
+// Helper for typewriter delay effect (slower like ChatGPT)
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+const TYPING_DELAY_MS = 15; // Delay per character (adjust for speed)
 
 export default function ChatPage() {
   const router = useRouter();
@@ -338,6 +343,11 @@ export default function ChatPage() {
         },
         body: JSON.stringify({
           message,
+          // Send current session conversation history for context memory
+          conversationHistory: messages.slice(-10).map(m => ({
+            role: m.role,
+            content: m.content
+          })),
           context: model === "llama" ? context : undefined,
           guestChatCount: isGuest ? guestChatCount : 0,
         }),
@@ -356,17 +366,52 @@ export default function ChatPage() {
         throw new Error(data.error || "Failed to send message");
       }
 
-      // Handle streaming response
+      // Handle streaming response with typewriter effect
       const reader = res.body?.getReader();
       const decoder = new TextDecoder();
 
       if (!reader) throw new Error("No reader available");
 
       let fullContent = "";
+      let displayedContent = "";
+      let pendingContent = ""; // Buffer for incoming chunks
 
-      while (true) {
+      // Typewriter animation function
+      const typewriterAnimate = async () => {
+        while (pendingContent.length > 0 || !reader.closed) {
+          if (pendingContent.length > 0) {
+            // Take characters in small batches for smoother animation
+            const charsToAdd = pendingContent.slice(0, 3); // 3 chars at a time
+            pendingContent = pendingContent.slice(3);
+            displayedContent += charsToAdd;
+
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === assistantMessageId
+                  ? { ...msg, content: displayedContent, modelUsed: model }
+                  : msg
+              )
+            );
+
+            await delay(TYPING_DELAY_MS);
+          } else {
+            // Wait a bit before checking again
+            await delay(5);
+          }
+        }
+      };
+
+      // Start typewriter animation in background
+      const animationPromise = typewriterAnimate();
+
+      // Read stream and buffer content
+      let streamDone = false;
+      while (!streamDone) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          streamDone = true;
+          break;
+        }
 
         const chunk = decoder.decode(value);
         const lines = chunk.split("\n");
@@ -377,20 +422,21 @@ export default function ChatPage() {
               const data = JSON.parse(line.slice(6));
 
               if (data.done) {
-                // Streaming complete
+                // Update message with ragUsed status
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === assistantMessageId
+                      ? { ...msg, ragUsed: data.ragUsed }
+                      : msg
+                  )
+                );
+                streamDone = true;
                 break;
               }
 
               if (data.content) {
                 fullContent += data.content;
-                // Update the assistant message with new content and model used
-                setMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === assistantMessageId
-                      ? { ...msg, content: fullContent, modelUsed: model }
-                      : msg
-                  )
-                );
+                pendingContent += data.content; // Add to animation buffer
               }
 
               if (data.error) {
@@ -401,6 +447,23 @@ export default function ChatPage() {
             }
           }
         }
+      }
+
+      // Wait for remaining animation to complete
+      while (pendingContent.length > 0) {
+        const charsToAdd = pendingContent.slice(0, 3);
+        pendingContent = pendingContent.slice(3);
+        displayedContent += charsToAdd;
+
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === assistantMessageId
+              ? { ...msg, content: displayedContent, modelUsed: model }
+              : msg
+          )
+        );
+
+        await delay(TYPING_DELAY_MS);
       }
 
       // Update guest chat count
@@ -469,10 +532,17 @@ export default function ChatPage() {
       if (!reader) throw new Error("No reader available");
 
       let fullContent = "";
+      let displayedContent = "";
+      let pendingContent = "";
 
-      while (true) {
+      // Read stream and buffer content  
+      let streamDone = false;
+      while (!streamDone) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          streamDone = true;
+          break;
+        }
 
         const chunk = decoder.decode(value);
         const lines = chunk.split("\n");
@@ -481,21 +551,35 @@ export default function ChatPage() {
           if (line.startsWith("data: ")) {
             try {
               const data = JSON.parse(line.slice(6));
-              if (data.done) break;
+              if (data.done) {
+                streamDone = true;
+                break;
+              }
               if (data.content) {
                 fullContent += data.content;
-                setMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === assistantMessageId
-                      ? { ...msg, content: fullContent }
-                      : msg
-                  )
-                );
+                pendingContent += data.content;
               }
             } catch {
               // Skip invalid JSON
             }
           }
+        }
+
+        // Animate pending content with typewriter effect
+        while (pendingContent.length > 0) {
+          const charsToAdd = pendingContent.slice(0, 3);
+          pendingContent = pendingContent.slice(3);
+          displayedContent += charsToAdd;
+
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMessageId
+                ? { ...msg, content: displayedContent }
+                : msg
+            )
+          );
+
+          await delay(TYPING_DELAY_MS);
         }
       }
     } catch (error) {
@@ -565,10 +649,17 @@ export default function ChatPage() {
       if (!reader) throw new Error("No reader available");
 
       let fullContent = "";
+      let displayedContent = "";
+      let pendingContent = "";
 
-      while (true) {
+      // Read stream and buffer content
+      let streamDone = false;
+      while (!streamDone) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          streamDone = true;
+          break;
+        }
 
         const chunk = decoder.decode(value);
         const lines = chunk.split("\n");
@@ -577,21 +668,35 @@ export default function ChatPage() {
           if (line.startsWith("data: ")) {
             try {
               const data = JSON.parse(line.slice(6));
-              if (data.done) break;
+              if (data.done) {
+                streamDone = true;
+                break;
+              }
               if (data.content) {
                 fullContent += data.content;
-                setMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === assistantMessageId
-                      ? { ...msg, content: fullContent }
-                      : msg
-                  )
-                );
+                pendingContent += data.content;
               }
             } catch {
               // Skip invalid JSON
             }
           }
+        }
+
+        // Animate pending content with typewriter effect
+        while (pendingContent.length > 0) {
+          const charsToAdd = pendingContent.slice(0, 3);
+          pendingContent = pendingContent.slice(3);
+          displayedContent += charsToAdd;
+
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMessageId
+                ? { ...msg, content: displayedContent }
+                : msg
+            )
+          );
+
+          await delay(TYPING_DELAY_MS);
         }
       }
 

@@ -35,6 +35,7 @@ type Message = {
   fileName?: string;
   imageUrl?: string;
   modelUsed?: "gpt" | "llama";
+  ragUsed?: boolean;
 };
 
 interface ChatAreaProps {
@@ -337,6 +338,15 @@ export default function ChatArea({
                             {message.modelUsed === "llama" ? "Llama" : "GPT"}
                           </span>
                         )}
+                        {/* RAG Indicator Badge */}
+                        {message.ragUsed !== undefined && (
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium flex items-center gap-1 ${message.ragUsed
+                              ? "bg-blue-500/10 text-blue-400"
+                              : "bg-gray-500/10 text-gray-400"
+                            }`}>
+                            {message.ragUsed ? "📚 Knowledge" : "💡 Umum"}
+                          </span>
+                        )}
                       </div>
 
                       {/* Message Content - Clean text style */}
@@ -395,6 +405,36 @@ export default function ChatArea({
                           />
                         )}
                       </div>
+
+                      {/* 🔥 Suggested Follow-up Questions */}
+                      {!isLoading && index === messages.length - 1 && message.content.length > 50 && (
+                        <div className="mt-4 pt-4 border-t border-border/50">
+                          <p className="text-xs text-muted-foreground mb-2">💡 Pertanyaan lanjutan:</p>
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              onClick={() => onSendMessage("Jelaskan lebih detail tentang ini")}
+                              className="px-3 py-1.5 text-xs rounded-full bg-primary/10 text-primary 
+                                         hover:bg-primary/20 transition-colors"
+                            >
+                              Jelaskan lebih detail
+                            </button>
+                            <button
+                              onClick={() => onSendMessage("Berikan contoh konkret")}
+                              className="px-3 py-1.5 text-xs rounded-full bg-primary/10 text-primary 
+                                         hover:bg-primary/20 transition-colors"
+                            >
+                              Beri contoh
+                            </button>
+                            <button
+                              onClick={() => onSendMessage("Apa hubungannya dengan topik lain?")}
+                              className="px-3 py-1.5 text-xs rounded-full bg-primary/10 text-primary 
+                                         hover:bg-primary/20 transition-colors"
+                            >
+                              Hubungan dengan topik lain
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}

@@ -54,10 +54,12 @@ export const TOKEN_CONFIG = {
 
 export const RAG_CONFIG = {
     // Minimum similarity score to consider relevant (0-1)
-    MIN_SIMILARITY_SCORE: 0.3,
+    // Lowered from 0.3 to 0.25 for better document retrieval
+    MIN_SIMILARITY_SCORE: 0.25,
 
     // Number of documents to retrieve
-    TOP_K: 3,
+    // Increased from 3 to 5 for more comprehensive context
+    TOP_K: 5,
 
     // Whether to enforce context usage
     ENFORCE_CONTEXT: true,

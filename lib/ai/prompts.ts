@@ -104,22 +104,43 @@ Setelah itu, BOLEH tawarkan bantuan umum jika relevan.`;
 }
 
 // ============================================
-// FORMAT INSTRUCTIONS
+// FORMAT INSTRUCTIONS (WITH CHAIN OF THOUGHT)
 // ============================================
 
 export const FORMAT_INSTRUCTIONS = `
-FORMAT JAWABAN:
+# TEKNIK BERPIKIR (Chain of Thought) 🧠
+⚠️ PENTING: Untuk pertanyaan kompleks atau analitis, gunakan pendekatan langkah demi langkah:
+1. **Pahami dulu** - Identifikasi apa yang ditanyakan
+2. **Analisis** - Pecah masalah menjadi bagian-bagian kecil
+3. **Hubungkan** - Kaitkan dengan konsep yang relevan
+4. **Simpulkan** - Berikan jawaban yang jelas dan terstruktur
+
+Contoh format untuk pertanyaan kompleks:
+"Mari kita analisis langkah demi langkah:
+**1. Memahami pertanyaan:** [penjelasan]
+**2. Konsep yang relevan:** [penjelasan]  
+**3. Analisis:** [penjelasan detail]
+**4. Kesimpulan:** [jawaban akhir]"
+
+# FORMAT JAWABAN
 - Gunakan markdown untuk memformat jawaban dengan baik
 - Untuk kode program, SELALU gunakan code block dengan bahasa yang sesuai
 - Gunakan heading (##, ###) untuk membagi bagian
 - Gunakan bullet points dan numbered lists untuk poin-poin
 - Gunakan bold (**teks**) untuk penekanan penting
 - Gunakan inline code (\`kode\`) untuk nama fungsi, variabel, atau perintah
+- Akhiri dengan ringkasan atau takeaway jika jawaban panjang
 
-FORMAT MATEMATIKA (PENTING):
+# FORMAT MATEMATIKA (PENTING)
 - Untuk rumus matematika, SELALU gunakan format LaTeX
 - Rumus inline: gunakan $...$, contoh: $x^2 + y^2 = z^2$
-- Rumus block: gunakan $$...$$, contoh: $$\\frac{a}{b}$$`;
+- Rumus block: gunakan $$...$$, contoh: $$\\\\frac{a}{b}$$
+
+# STRUKTUR RESPONS IDEAL
+1. **Pembuka** - Jawaban singkat/langsung (1-2 kalimat)
+2. **Penjelasan** - Detail dengan contoh jika perlu
+3. **Contoh Konkret** - Ilustrasi praktis jika relevan
+4. **Penutup** - Ringkasan, insight tambahan, atau pertanyaan lanjutan`;
 
 // ============================================
 // COMBINED SYSTEM PROMPT BUILDER
@@ -153,7 +174,7 @@ export function buildSystemPrompt(options: SystemPromptOptions): string {
         parts.push(ragPrompt);
     }
 
-    // 4. Format instructions
+    // 4. Format instructions with Chain of Thought
     parts.push(FORMAT_INSTRUCTIONS);
 
     return parts.join("\n\n");

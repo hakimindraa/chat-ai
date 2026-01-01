@@ -63,8 +63,8 @@ export async function POST(req: Request) {
             }
         }
 
-        // 2️⃣ AMBIL MESSAGE DARI BODY
-        const { message, guestChatCount } = await req.json();
+        // 2️⃣ AMBIL MESSAGE DAN CONVERSATION HISTORY DARI BODY
+        const { message, guestChatCount, conversationHistory } = await req.json();
 
         if (!message) {
             return new Response(JSON.stringify({ error: "Message wajib diisi" }), {
@@ -193,8 +193,19 @@ export async function POST(req: Request) {
                 content: systemPrompt,
             });
 
-            // Get history only for logged in users
-            if (!isGuest && userId) {
+            // 🔥 PRIORITIZE CURRENT SESSION HISTORY from frontend (for context memory)
+            if (conversationHistory && Array.isArray(conversationHistory) && conversationHistory.length > 0) {
+                // Use frontend conversation history (current session - not yet saved to DB)
+                for (const msg of conversationHistory) {
+                    if (msg.role && msg.content) {
+                        conversationMessages.push({
+                            role: msg.role as "user" | "assistant",
+                            content: msg.content
+                        });
+                    }
+                }
+            } else if (!isGuest && userId) {
+                // Fallback to database history if no frontend history
                 const chatHistory = await prisma.chat.findMany({
                     where: { userId },
                     orderBy: { createdAt: "desc" },
@@ -305,8 +316,8 @@ export async function POST(req: Request) {
                         }
                     }
 
-                    // Send done signal with model info
-                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, model: modelForSave })}\n\n`));
+                    // Send done signal with model info and RAG status
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, model: modelForSave, ragUsed: hasRagContext })}\n\n`));
                     controller.close();
 
                     // 7️⃣ SAVE TO DATABASE (after streaming completes)

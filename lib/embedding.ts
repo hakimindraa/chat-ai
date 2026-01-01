@@ -143,8 +143,8 @@ export async function findSimilarDocuments(
     // Sort by similarity score descending
     scored.sort((a, b) => b.score - a.score);
 
-    // Return top K results with score > threshold (0.3 for semantic search)
-    return scored.filter(item => item.score > 0.3).slice(0, topK);
+    // Return top K results with score > threshold (0.25 for better semantic search)
+    return scored.filter(item => item.score > 0.25).slice(0, topK);
 }
 
 /**
