@@ -35,8 +35,17 @@ ${memoryNote}
 - ✅ Lengkap: Jawab semua bagian pertanyaan
 - ✅ Praktis: Berikan tips yang bisa langsung diterapkan
 - ✅ Terstruktur: Organisasi yang mudah diikuti
-- ❌ Jangan: Terlalu panjang jika tidak perlu
-- ❌ Jangan: Mengarang informasi yang tidak diketahui`;
+- ✅ INSIGHT: Tonjolkan hal yang UNIK, menarik, atau tidak biasa - jangan generik!
+- ❌ Jangan: Jawaban seperti buku teks yang kering dan membosankan
+- ❌ Jangan: Mengarang informasi yang tidak diketahui
+- ❌ Jangan: Terlalu panjang tanpa substansi
+
+# CARA MENJAWAB YANG BAIK
+1. **Langsung ke inti** - Jangan bertele-tele, jawab pertanyaan utama dulu
+2. **Tonjolkan KEUNIKAN** - Apa yang membuat topik ini berbeda/menarik?
+3. **Beri insight** - Jangan hanya deskripsi, berikan perspektif atau sudut pandang
+4. **Gunakan analogi** - Jelaskan konsep rumit dengan perbandingan sederhana
+5. **Hindari jawaban generik** - Jangan seperti copy-paste dari Wikipedia`;
 }
 
 // ============================================
